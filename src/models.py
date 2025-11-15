@@ -64,3 +64,54 @@ def predict_rating(P, Q, user_idx, item_idx):
     prediction = np.clip(prediction, 1.0, 5.0)
     return prediction
 
+
+def rmse(true_ratings, predicted_ratings):
+    """
+    Root Mean Squared Error.
+    
+    Formula: RMSE = sqrt(mean((y_true - y_pred)^2))
+    """
+    mse = np.mean((true_ratings - predicted_ratings) ** 2)
+    return np.sqrt(mse)
+
+
+def mae(true_ratings, predicted_ratings):
+    """
+    Mean Absolute Error.
+    
+    Formula: MAE = mean(|y_true - y_pred|)
+    """
+    return np.mean(np.abs(true_ratings - predicted_ratings))
+
+
+def precision_at_k(true_items, recommended_items, k):
+    """
+    Precision@K: Fraction of relevant items in top-K.
+    """
+    if len(recommended_items) == 0:
+        return 0.0
+    
+    top_k = recommended_items[:k]
+    relevant = np.sum(np.isin(top_k, true_items))
+    return relevant / len(top_k)
+
+
+def recall_at_k(true_items, recommended_items, k):
+    """
+    Recall@K: Fraction of relevant items found in top-K.
+    """
+    if len(true_items) == 0:
+        return 0.0
+    
+    top_k = recommended_items[:k]
+    relevant = np.sum(np.isin(top_k, true_items))
+    return relevant / len(true_items)
+
+
+def hit_rate(true_items, recommended_items, k):
+    """
+    Hit Rate: Whether at least one relevant item in top-K.
+    """
+    top_k = recommended_items[:k]
+    return 1.0 if np.any(np.isin(top_k, true_items)) else 0.0
+
