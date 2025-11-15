@@ -115,3 +115,54 @@ def hit_rate(true_items, recommended_items, k):
     top_k = recommended_items[:k]
     return 1.0 if np.any(np.isin(top_k, true_items)) else 0.0
 
+
+def train_test_split_numpy(data, test_size=0.2, random_seed=42):
+    """
+    Split data into train/test sets.
+    Pure NumPy implementation.
+    """
+    np.random.seed(random_seed)
+    n_samples = len(data)
+    n_test = int(n_samples * test_size)
+    
+    indices = np.arange(n_samples)
+    np.random.shuffle(indices)
+    
+    test_indices = indices[:n_test]
+    train_indices = indices[n_test:]
+    
+    train_data = data[train_indices]
+    test_data = data[test_indices]
+    
+    return train_data, test_data
+
+
+def cross_validate(data, model_func, k_folds=5, random_seed=42):
+    """
+    K-fold cross-validation implementation.
+    Pure NumPy.
+    """
+    np.random.seed(random_seed)
+    n_samples = len(data)
+    fold_size = n_samples // k_folds
+    
+    indices = np.arange(n_samples)
+    np.random.shuffle(indices)
+    
+    scores = []
+    
+    for fold in range(k_folds):
+        start_idx = fold * fold_size
+        end_idx = start_idx + fold_size if fold < k_folds - 1 else n_samples
+        
+        test_indices = indices[start_idx:end_idx]
+        train_indices = np.concatenate([indices[:start_idx], indices[end_idx:]])
+        
+        train_data = data[train_indices]
+        test_data = data[test_indices]
+        
+        score = model_func(train_data, test_data)
+        scores.append(score)
+    
+    return np.mean(scores), np.std(scores)
+
