@@ -66,3 +66,65 @@ def compute_product_stats(data, product_id_col='ProductId', rating_col='Rating')
     
     return stats
 
+
+def compute_rating_deviation(user_rating, user_avg, product_avg):
+    """
+    Deviation of rating from user and product averages.
+    Personalization signal.
+    
+    Args:
+        user_rating: Individual rating value
+        user_avg: User's average rating
+        product_avg: Product's average rating
+    
+    Returns:
+        Deviation score
+    """
+    global_avg = (user_avg + product_avg) / 2
+    deviation = user_rating - global_avg
+    return deviation
+
+
+def compute_recency_score(timestamps, decay_factor=0.1):
+    """
+    Time-based weighting: recent ratings more important.
+    
+    Args:
+        timestamps: Array of Unix timestamps
+        decay_factor: Exponential decay factor
+    
+    Returns:
+        Recency scores (higher = more recent)
+    """
+    max_ts = np.max(timestamps)
+    time_diffs = max_ts - timestamps
+    
+    recency_scores = np.exp(-decay_factor * time_diffs / (365.25 * 24 * 3600))
+    return recency_scores
+
+
+def compute_rating_velocity(timestamps, window_days=30):
+    """
+    Ratings per time period (trending indicator).
+    
+    Args:
+        timestamps: Array of Unix timestamps
+        window_days: Time window in days
+    
+    Returns:
+        Rating velocity (ratings per window)
+    """
+    window_seconds = window_days * 24 * 3600
+    min_ts = np.min(timestamps)
+    max_ts = np.max(timestamps)
+    
+    num_windows = int((max_ts - min_ts) / window_seconds) + 1
+    window_counts = np.zeros(num_windows)
+    
+    for ts in timestamps:
+        window_idx = int((ts - min_ts) / window_seconds)
+        if window_idx < num_windows:
+            window_counts[window_idx] += 1
+    
+    return window_counts
+
