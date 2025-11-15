@@ -46,3 +46,60 @@ def cosine_similarity(vector_a, vector_b):
     similarity = dot_product / (norm_a * norm_b)
     return similarity
 
+
+def cosine_similarity_matrix(matrix, axis=0):
+    """
+    Compute pairwise cosine similarities.
+    
+    Args:
+        axis: 0 for user-user, 1 for item-item
+    
+    Returns:
+        Similarity matrix
+    """
+    if axis == 0:
+        matrix = matrix.T
+    
+    norms = np.linalg.norm(matrix, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    
+    normalized = matrix / norms
+    similarity_matrix = np.dot(normalized, normalized.T)
+    
+    return similarity_matrix
+
+
+def pearson_correlation(matrix, axis=0):
+    """
+    Pearson correlation for collaborative filtering.
+    Handles mean-centering automatically.
+    """
+    if axis == 0:
+        matrix = matrix.T
+    
+    mean_centered = matrix - np.mean(matrix, axis=1, keepdims=True)
+    
+    stds = np.std(mean_centered, axis=1, keepdims=True)
+    stds[stds == 0] = 1
+    
+    normalized = mean_centered / stds
+    correlation_matrix = np.dot(normalized, normalized.T) / (matrix.shape[1] - 1)
+    
+    return correlation_matrix
+
+
+def find_top_k_similar(similarity_matrix, idx, k=10):
+    """
+    Find top-k most similar items/users.
+    
+    Returns:
+        Indices and similarity scores
+    """
+    similarities = similarity_matrix[idx, :]
+    similarities[idx] = -np.inf
+    
+    top_k_indices = np.argsort(similarities)[-k:][::-1]
+    top_k_scores = similarities[top_k_indices]
+    
+    return top_k_indices, top_k_scores
+
