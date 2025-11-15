@@ -58,3 +58,40 @@ def validate_data(data):
     
     return report
 
+
+def get_basic_stats(data):
+    """
+    Calculate basic statistics: shape, unique counts, memory usage.
+    
+    Returns:
+        dict: Statistics summary
+    """
+    stats = {}
+    
+    stats['shape'] = (len(data),len(data.dtype.names) if data.dtype.names else 0)
+    stats['total_rows'] = len(data)
+    stats['total_columns'] = len(data.dtype.names) if data.dtype.names else 0
+    stats['memory_bytes'] = data.nbytes
+    stats['memory_mb'] = data.nbytes / (1024 * 1024)
+    
+    stats['unique_counts'] = {}
+    for field in data.dtype.names:
+        unique_values = np.unique(data[field])
+        stats['unique_counts'][field] = len(unique_values)
+    
+    stats['numeric_summary'] = {}
+    for field in data.dtype.names:
+        if np.issubdtype(data[field].dtype, np.number):
+            field_data = data[field]
+            valid_data = field_data[~np.isnan(field_data)]
+            if len(valid_data) > 0:
+                stats['numeric_summary'][field] = {
+                    'mean': float(np.mean(valid_data)),
+                    'std': float(np.std(valid_data)),
+                    'min': float(np.min(valid_data)),
+                    'max': float(np.max(valid_data)),
+                    'median': float(np.median(valid_data))
+                }
+    
+    return stats
+
