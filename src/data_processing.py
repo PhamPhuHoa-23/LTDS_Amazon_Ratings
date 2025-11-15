@@ -139,3 +139,22 @@ def detect_outliers_zscore(data, column_name=None, threshold=3.0):
     
     return outliers
 
+
+def remove_outliers(data, outlier_mask):
+    """
+    Remove outliers from data based on boolean mask.
+    
+    Args:
+        data: NumPy array
+        outlier_mask: Boolean array indicating outliers
+    
+    Returns:
+        Data with outliers removed
+    """
+    if data.dtype.names:
+        filtered_data = data[~outlier_mask]
+    else:
+        filtered_data = data[~outlier_mask]
+    
+    return filtered_data
+
