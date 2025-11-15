@@ -184,3 +184,25 @@ def normalize_minmax(data, feature_min=0, feature_max=1):
     
     return normalized
 
+
+def normalize_log(data, base='e'):
+    """
+    Log transformation for skewed distributions.
+    
+    Args:
+        data: NumPy array (must be positive)
+        base: Log base ('e' for natural log, 10 for log10)
+    
+    Returns:
+        Log-transformed data
+    """
+    if np.any(data <= 0):
+        data = data - np.min(data) + 1
+    
+    if base == 'e':
+        return np.log(data)
+    elif base == 10:
+        return np.log10(data)
+    else:
+        raise ValueError("Base must be 'e' or 10")
+
