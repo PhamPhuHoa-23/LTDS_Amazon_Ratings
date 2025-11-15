@@ -76,3 +76,34 @@ def impute_missing_median(data, column_name=None):
             data_copy[np.isnan(data_copy)] = median_value
         return data_copy
 
+
+def detect_outliers_iqr(data, column_name=None, multiplier=1.5):
+    """
+    Detect outliers using IQR (Interquartile Range) method.
+    
+    Args:
+        data: NumPy array
+        column_name: Column name (for structured arrays)
+        multiplier: IQR multiplier (default 1.5)
+    
+    Returns:
+        Boolean array: True for outliers
+    """
+    if column_name and data.dtype.names:
+        col_data = data[column_name]
+    else:
+        col_data = data
+    
+    if not np.issubdtype(col_data.dtype, np.number):
+        raise ValueError("IQR method only works with numeric data")
+    
+    q1 = np.percentile(col_data, 25)
+    q3 = np.percentile(col_data, 75)
+    iqr = q3 - q1
+    
+    lower_bound = q1 - multiplier * iqr
+    upper_bound = q3 + multiplier * iqr
+    
+    outliers = (col_data < lower_bound) | (col_data > upper_bound)
+    return outliers
+
