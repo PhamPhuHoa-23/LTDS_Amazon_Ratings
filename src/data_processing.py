@@ -228,3 +228,25 @@ def standardize_zscore(data):
     standardized = (data - mean) / std
     return standardized
 
+
+def unix_to_datetime_features(timestamps):
+    """
+    Convert Unix timestamps to datetime features.
+    
+    Args:
+        timestamps: Array of Unix timestamps (seconds since 1970)
+    
+    Returns:
+        Dictionary of datetime features as NumPy arrays
+    """
+    from datetime import datetime
+    
+    features = {}
+    features['year'] = np.array([datetime.fromtimestamp(ts).year for ts in timestamps])
+    features['month'] = np.array([datetime.fromtimestamp(ts).month for ts in timestamps])
+    features['day'] = np.array([datetime.fromtimestamp(ts).day for ts in timestamps])
+    features['weekday'] = np.array([datetime.fromtimestamp(ts).weekday() for ts in timestamps])
+    features['hour'] = np.array([datetime.fromtimestamp(ts).hour for ts in timestamps])
+    
+    return features
+
