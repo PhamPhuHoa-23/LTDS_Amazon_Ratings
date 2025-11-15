@@ -107,3 +107,35 @@ def detect_outliers_iqr(data, column_name=None, multiplier=1.5):
     outliers = (col_data < lower_bound) | (col_data > upper_bound)
     return outliers
 
+
+def detect_outliers_zscore(data, column_name=None, threshold=3.0):
+    """
+    Detect outliers using Z-score method.
+    
+    Args:
+        data: NumPy array
+        column_name: Column name (for structured arrays)
+        threshold: Z-score threshold (default 3.0)
+    
+    Returns:
+        Boolean array: True for outliers
+    """
+    if column_name and data.dtype.names:
+        col_data = data[column_name]
+    else:
+        col_data = data
+    
+    if not np.issubdtype(col_data.dtype, np.number):
+        raise ValueError("Z-score method only works with numeric data")
+    
+    mean = np.mean(col_data)
+    std = np.std(col_data)
+    
+    if std == 0:
+        return np.zeros_like(col_data, dtype=bool)
+    
+    z_scores = np.abs((col_data - mean) / std)
+    outliers = z_scores > threshold
+    
+    return outliers
+
