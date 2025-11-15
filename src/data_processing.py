@@ -250,3 +250,37 @@ def unix_to_datetime_features(timestamps):
     
     return features
 
+
+def filter_by_min_ratings(data, user_id_col='UserId', product_id_col='ProductId', 
+                          min_user_ratings=5, min_product_ratings=5):
+    """
+    Filter users and products with minimum rating counts.
+    Reduces sparsity.
+    
+    Args:
+        data: Structured NumPy array with user and product IDs
+        user_id_col: Column name for user IDs
+        product_id_col: Column name for product IDs
+        min_user_ratings: Minimum ratings per user
+        min_product_ratings: Minimum ratings per product
+    
+    Returns:
+        Filtered data array
+    """
+    user_ids = data[user_id_col]
+    product_ids = data[product_id_col]
+    
+    unique_users, user_counts = np.unique(user_ids, return_counts=True)
+    unique_products, product_counts = np.unique(product_ids, return_counts=True)
+    
+    valid_users = unique_users[user_counts >= min_user_ratings]
+    valid_products = unique_products[product_counts >= min_product_ratings]
+    
+    user_mask = np.isin(user_ids, valid_users)
+    product_mask = np.isin(product_ids, valid_products)
+    
+    filtered_mask = user_mask & product_mask
+    filtered_data = data[filtered_mask]
+    
+    return filtered_data
+
