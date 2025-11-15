@@ -206,3 +206,25 @@ def normalize_log(data, base='e'):
     else:
         raise ValueError("Base must be 'e' or 10")
 
+
+def standardize_zscore(data):
+    """
+    Z-score standardization: mean=0, std=1.
+    
+    Formula: Z = (X - μ) / σ
+    
+    Args:
+        data: NumPy array
+    
+    Returns:
+        Standardized data
+    """
+    mean = np.mean(data)
+    std = np.std(data)
+    
+    if std == 0:
+        return np.zeros_like(data)
+    
+    standardized = (data - mean) / std
+    return standardized
+
