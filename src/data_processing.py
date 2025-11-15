@@ -158,3 +158,29 @@ def remove_outliers(data, outlier_mask):
     
     return filtered_data
 
+
+def normalize_minmax(data, feature_min=0, feature_max=1):
+    """
+    Min-Max normalization: scale to [feature_min, feature_max].
+    
+    Formula: X_norm = (X - X_min) / (X_max - X_min) * (max - min) + min
+    
+    Args:
+        data: NumPy array
+        feature_min: Minimum value of normalized range
+        feature_max: Maximum value of normalized range
+    
+    Returns:
+        Normalized data
+    """
+    data_min = np.min(data)
+    data_max = np.max(data)
+    
+    if data_max == data_min:
+        return np.full_like(data, (feature_min + feature_max) / 2)
+    
+    normalized = (data - data_min) / (data_max - data_min)
+    normalized = normalized * (feature_max - feature_min) + feature_min
+    
+    return normalized
+
