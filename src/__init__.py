@@ -46,8 +46,12 @@ from .visualization import (
     plot_user_activity,
     plot_temporal_trend,
     plot_feature_distributions,
-    plot_correlation_heatmap,
+        save_results,
+    )
     plot_sparsity_analysis,
+    # OOP convenience exports (refactor additions)
+    from .data_processor import DataProcessor
+    from .visualizer import Visualizer
     plot_metrics_comparison,
     plot_recommendation_results
 )
@@ -124,6 +128,8 @@ __all__ = [
     'compute_recency_score',
     'compute_rating_velocity',
     # Visualization
+        'DataProcessor',
+        'Visualizer'
     'plot_rating_distribution',
     'plot_top_products',
     'plot_user_activity',
