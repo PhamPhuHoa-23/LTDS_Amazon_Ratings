@@ -317,21 +317,156 @@ class UserBasedCF:
         return top_indices
 
 
+class TruncatedSVD:
+    """
+    Truncated SVD (chỉ tính k largest singular values)
+    Implement từ scratch dùng power iteration method (không dùng sklearn)
+    """
+    
+    def __init__(self, n_components=50, n_iterations=20):
+        """
+        Parameters:
+        -----------
+        n_components : int
+            Số lượng singular values cần tính
+        n_iterations : int
+            Số lần iterations cho power method
+        """
+        self.n_components = n_components
+        self.n_iterations = n_iterations
+        self.U = None
+        self.sigma = None
+        self.Vt = None
+        
+    def _power_method(self, matrix, k=1, max_iter=20):
+        """
+        Power iteration method để tính eigenvectors
+        (được dùng để tính singular vectors)
+        
+        Parameters:
+        -----------
+        matrix : numpy array
+            Input matrix (normally M^T @ M hoặc M @ M^T)
+        k : int
+            Số lượng eigenvectors cần tính
+        max_iter : int
+            Số lần iterations
+            
+        Returns:
+        --------
+        tuple : (eigenvalues, eigenvectors)
+        """
+        m, n = matrix.shape
+        eigenvalues = []
+        eigenvectors = []
+        
+        # Copy matrix để tránh modify original
+        A = matrix.copy().astype(np.float64)
+        
+        for _ in range(k):
+            # Initialize random vector
+            v = np.random.randn(n)
+            v = v / np.linalg.norm(v)
+            
+            # Power iteration
+            for _ in range(max_iter):
+                # v_new = (A^T @ A) @ v
+                u = np.dot(A.T, np.dot(A, v))
+                u = u / (np.linalg.norm(u) + 1e-10)
+                
+                # Check convergence
+                if np.linalg.norm(u - v) < 1e-6:
+                    break
+                v = u
+            
+            # Eigenvalue = ||A @ v||
+            Av = np.dot(A, v)
+            eigenvalue = np.linalg.norm(Av)
+            eigenvalues.append(eigenvalue)
+            eigenvectors.append(v)
+            
+            # Deflation: A = A - eigenvalue * u * v^T
+            u = Av / (eigenvalue + 1e-10)
+            A = A - eigenvalue * np.outer(u, v)
+        
+        return np.array(eigenvalues), np.array(eigenvectors).T
+    
+    def fit(self, matrix):
+        """
+        Tính Truncated SVD của matrix
+        
+        Parameters:
+        -----------
+        matrix : numpy array
+            Input matrix (user-item matrix)
+        """
+        m, n = matrix.shape
+        k = min(self.n_components, m, n)
+        
+        # Tính right singular vectors (V) từ M^T @ M (vectorized)
+        MTM = np.dot(matrix.T, matrix)
+        eigenvalues_v, right_vecs = self._power_method(MTM, k=k, max_iter=self.n_iterations)
+        
+        # Singular values = sqrt(eigenvalues)
+        self.sigma = np.sqrt(np.maximum(eigenvalues_v, 0))  # Tránh sqrt(negative)
+        
+        # Tính left singular vectors (U) từ M @ M^T (vectorized)
+        MMT = np.dot(matrix, matrix.T)
+        eigenvalues_u, left_vecs = self._power_method(MMT, k=k, max_iter=self.n_iterations)
+        
+        # Left singular vectors
+        self.U = left_vecs
+        
+        # Right singular vectors (V^T)
+        self.Vt = right_vecs.T
+    
+    def transform(self, matrix):
+        """
+        Transform matrix using learned SVD
+        
+        Parameters:
+        -----------
+        matrix : numpy array
+            Input matrix
+            
+        Returns:
+        --------
+        numpy array : Transformed matrix (U * Sigma)
+        """
+        if self.U is None or self.sigma is None:
+            raise ValueError("Model chưa fit. Gọi fit() trước.")
+        
+        # Project matrix lên latent space
+        return np.dot(matrix, np.dot(self.Vt.T, np.diag(1 / (self.sigma + 1e-10))))
+    
+    def reconstruct(self):
+        """
+        Reconstruct approximated matrix
+        
+        Returns:
+        --------
+        numpy array : Reconstructed matrix
+        """
+        if self.U is None or self.sigma is None or self.Vt is None:
+            raise ValueError("Model chưa fit. Gọi fit() trước.")
+        
+        # Reconstruct: U * Sigma * V^T (vectorized)
+        return np.dot(self.U, np.dot(np.diag(self.sigma), self.Vt))
+
+
 class SVDRecommender:
     """
-    Matrix Factorization using SVD (Singular Value Decomposition)
+    Matrix Factorization using Truncated SVD (dùng TruncatedSVD từ scratch)
     """
     
     def __init__(self, n_components=50):
         self.n_components = n_components
-        self.U = None
-        self.sigma = None
-        self.Vt = None
+        self.svd_model = TruncatedSVD(n_components=n_components)
         self.user_item_matrix = None
         
     def fit(self, user_indices, product_indices, ratings, n_users, n_products):
         """
-        Train model using SVD
+        Train model using Truncated SVD
         
         Parameters:
         -----------
@@ -342,14 +477,8 @@ class SVDRecommender:
         self.user_item_matrix = np.zeros((n_users, n_products))
         self.user_item_matrix[user_indices, product_indices] = ratings
         
-        # Apply SVD (vectorized linear algebra)
-        # A = U * Sigma * V^T
-        self.U, self.sigma, self.Vt = np.linalg.svd(self.user_item_matrix, full_matrices=False)
-        
-        # Keep only top n_components
-        self.U = self.U[:, :self.n_components]
-        self.sigma = self.sigma[:self.n_components]
-        self.Vt = self.Vt[:self.n_components, :]
+        # Fit Truncated SVD (vectorized)
+        self.svd_model.fit(self.user_item_matrix)
         
         # SVD hoàn tất (không in thông tin chi tiết)
         
@@ -361,8 +490,7 @@ class SVDRecommender:
         --------
         numpy array : Reconstructed matrix
         """
-        # Reconstruct: U * Sigma * V^T (vectorized)
-        return np.dot(self.U, np.dot(np.diag(self.sigma), self.Vt))
+        return self.svd_model.reconstruct()
         
     def recommend(self, user_id, top_n=10, exclude_products=None):
         """
