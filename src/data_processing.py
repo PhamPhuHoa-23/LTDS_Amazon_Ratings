@@ -22,6 +22,32 @@ def detect_missing_values(data):
         else:
             return (data == b'') | (data == '')
 
+def handle_missing_values(data, strategy='mean', fill_value=0):
+    """
+    Handle missing values in numpy array
+    
+    Args:
+        data: Input array
+        strategy: 'mean', 'median', 'constant'
+        fill_value: Value to use if strategy='constant'
+    
+    Returns:
+        Array with missing values handled
+    """
+    mask = np.isnan(data)
+    
+    if strategy == 'mean':
+        fill_val = np.nanmean(data)
+    elif strategy == 'median':
+        fill_val = np.nanmedian(data)
+    else:
+        fill_val = fill_value
+    
+    data_filled = data.copy()
+    data_filled[mask] = fill_val
+    
+    return data_filled
+
 
 def impute_missing_mean(data, column_name=None):
     """
