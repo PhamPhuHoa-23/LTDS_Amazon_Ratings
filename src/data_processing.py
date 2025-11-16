@@ -1,5 +1,342 @@
-import numpy as np
+"""
+Data Processing Module
+CSC17104 - Programming for Data Science
+Student: Angela - MSSV: 23122030
 
+Module này chứa tất cả functions để load, validate, process, và engineer features từ dữ liệu
+Tất cả operations đều vectorized để tối ưu performance
+"""
+
+import numpy as np
+from datetime import datetime
+
+
+# ============================================================================
+# DATA LOADING FUNCTIONS
+# ============================================================================
+
+def load_csv_numpy(filepath, max_rows=None):
+    """
+    Load CSV file bằng NumPy (vectorized I/O)
+    
+    Parameters:
+    -----------
+    filepath : str
+        Đường dẫn tới file CSV
+    max_rows : int, optional
+        Số lượng rows tối đa để load (dùng cho sampling)
+        
+    Returns:
+    --------
+    data : numpy structured array
+        Dữ liệu đã load
+    header : list
+        Tên các columns
+    """
+    data = np.genfromtxt(
+        filepath,
+        delimiter=',',
+        skip_header=1,
+        dtype=None,
+        encoding='utf-8',
+        names=['UserId', 'ProductId', 'Rating', 'Timestamp'],
+        max_rows=max_rows
+    )
+    
+    header = ['UserId', 'ProductId', 'Rating', 'Timestamp']
+    
+    return data, header
+
+
+def validate_data(data):
+    """
+    Validate dữ liệu và phát hiện missing values (vectorized)
+    
+    Parameters:
+    -----------
+    data : numpy structured array
+        Dữ liệu cần validate
+        
+    Returns:
+    --------
+    validation_info : dict
+        Dictionary chứa thông tin validation
+    """
+    ratings = data['Rating'].astype(np.float64)
+    timestamps = data['Timestamp'].astype(np.int64)
+    
+    nan_ratings = np.sum(np.isnan(ratings))
+    nan_timestamps = np.sum(timestamps == 0)
+    
+    total_nulls = nan_ratings + nan_timestamps
+    total_values = len(data) * 2  # 2 numeric columns
+    
+    return {
+        'total_nulls': total_nulls,
+        'null_percentage': (total_nulls / total_values) * 100,
+        'null_counts': {
+            'Rating': nan_ratings,
+            'Timestamp': nan_timestamps
+        }
+    }
+
+
+def get_basic_stats(data):
+    """
+    Tính toán basic statistics (vectorized)
+    
+    Parameters:
+    -----------
+    data : numpy structured array
+        Dữ liệu cần phân tích
+        
+    Returns:
+    --------
+    stats : dict
+        Dictionary chứa các statistics cơ bản
+    """
+    n_rows = len(data)
+    n_cols = len(data.dtype.names)
+    
+    unique_counts = {
+        'UserId': len(np.unique(data['UserId'])),
+        'ProductId': len(np.unique(data['ProductId'])),
+        'Rating': len(np.unique(data['Rating'])),
+        'Timestamp': len(np.unique(data['Timestamp']))
+    }
+    
+    memory_mb = data.nbytes / (1024 ** 2)
+    
+    return {
+        'total_rows': n_rows,
+        'total_columns': n_cols,
+        'memory_mb': memory_mb,
+        'unique_counts': unique_counts
+    }
+
+
+def extract_arrays(data):
+    """
+    Extract arrays từ structured array (vectorized)
+    
+    Parameters:
+    -----------
+    data : numpy structured array
+        Dữ liệu nguồn
+        
+    Returns:
+    --------
+    tuple : (user_ids, product_ids, ratings, timestamps)
+        Các arrays đã extract
+    """
+    user_ids = data['UserId']
+    product_ids = data['ProductId']
+    ratings = data['Rating'].astype(np.float64)
+    timestamps = data['Timestamp'].astype(np.int64)
+    
+    return user_ids, product_ids, ratings, timestamps
+
+
+def clean_data(user_ids, product_ids, ratings, timestamps):
+    """
+    Clean dữ liệu: loại bỏ missing values và outliers (vectorized)
+    
+    Parameters:
+    -----------
+    user_ids, product_ids, ratings, timestamps : numpy arrays
+        Dữ liệu cần clean
+        
+    Returns:
+    --------
+    tuple : Cleaned arrays
+    """
+    valid_rating = ~np.isnan(ratings) & (ratings >= 1.0) & (ratings <= 5.0)
+    valid_timestamp = (timestamps > 0) & (timestamps < 2000000000)
+    
+    valid_mask = valid_rating & valid_timestamp
+    
+    return (
+        user_ids[valid_mask],
+        product_ids[valid_mask],
+        ratings[valid_mask],
+        timestamps[valid_mask]
+    )
+
+
+def filter_by_min_ratings(user_ids, product_ids, ratings, timestamps, 
+                          min_user_ratings=5, min_product_ratings=5,
+                          max_iterations=10):
+    """
+    Filter users và products có ít ratings (vectorized, iterative)
+    
+    Parameters:
+    -----------
+    user_ids, product_ids, ratings, timestamps : numpy arrays
+        Dữ liệu cần filter
+    min_user_ratings : int
+        Số ratings tối thiểu cho user
+    min_product_ratings : int
+        Số ratings tối thiểu cho product
+    max_iterations : int
+        Số iterations tối đa
+        
+    Returns:
+    --------
+    tuple : Filtered arrays
+    """
+    iteration = 0
+    
+    while iteration < max_iterations:
+        prev_n = len(ratings)
+        
+        unique_users, user_inv = np.unique(user_ids, return_inverse=True)
+        user_counts = np.bincount(user_inv)
+        
+        unique_products, product_inv = np.unique(product_ids, return_inverse=True)
+        product_counts = np.bincount(product_inv)
+        
+        user_valid = user_counts[user_inv] >= min_user_ratings
+        product_valid = product_counts[product_inv] >= min_product_ratings
+        
+        valid_mask = user_valid & product_valid
+        
+        user_ids = user_ids[valid_mask]
+        product_ids = product_ids[valid_mask]
+        ratings = ratings[valid_mask]
+        timestamps = timestamps[valid_mask]
+        
+        if len(ratings) == prev_n:
+            break
+            
+        iteration += 1
+    
+    return user_ids, product_ids, ratings, timestamps
+
+
+def create_id_mappings(user_ids, product_ids):
+    """
+    Tạo mappings từ string IDs sang integer indices (vectorized)
+    
+    Parameters:
+    -----------
+    user_ids, product_ids : numpy arrays
+        String IDs cần map
+        
+    Returns:
+    --------
+    tuple : (unique_users, unique_products, user_indices, product_indices)
+    """
+    unique_users, user_indices = np.unique(user_ids, return_inverse=True)
+    unique_products, product_indices = np.unique(product_ids, return_inverse=True)
+    
+    return unique_users, unique_products, user_indices, product_indices
+
+
+def load_processed_data(data_dir='../data/processed/'):
+    """
+    Load preprocessed data từ file đã save
+    
+    Parameters:
+    -----------
+    data_dir : str
+        Thư mục chứa preprocessed data
+        
+    Returns:
+    --------
+    dict : Dictionary chứa tất cả data và features
+    """
+    data = np.load(data_dir + 'preprocessed_data.npz')
+    mappings = np.load(data_dir + 'id_mappings.npz')
+    metadata = np.load(data_dir + 'metadata.npy', allow_pickle=True).item()
+    
+    return {
+        'data': data,
+        'mappings': mappings,
+        'metadata': metadata
+    }
+
+
+def sample_data(user_ids, product_ids, ratings, timestamps, n_samples=100000, random_seed=42):
+    """
+    Sample dữ liệu cho development (vectorized)
+    
+    Parameters:
+    -----------
+    user_ids, product_ids, ratings, timestamps : numpy arrays
+        Dữ liệu nguồn
+    n_samples : int
+        Số samples cần lấy
+    random_seed : int
+        Random seed để reproducibility
+        
+    Returns:
+    --------
+    tuple : Sampled arrays
+    """
+    np.random.seed(random_seed)
+    
+    n_total = len(ratings)
+    if n_samples >= n_total:
+        return user_ids, product_ids, ratings, timestamps
+    
+    indices = np.random.choice(n_total, size=n_samples, replace=False)
+    
+    return (
+        user_ids[indices],
+        product_ids[indices],
+        ratings[indices],
+        timestamps[indices]
+    )
+
+
+def train_test_split(user_indices, product_indices, ratings, timestamps,
+                     test_size=0.2, random_seed=42):
+    """
+    Split data thành train và test sets (vectorized)
+    
+    Parameters:
+    -----------
+    user_indices, product_indices, ratings, timestamps : numpy arrays
+        Dữ liệu cần split
+    test_size : float
+        Tỷ lệ test set (0.0 - 1.0)
+    random_seed : int
+        Random seed
+        
+    Returns:
+    --------
+    dict : Dictionary chứa train và test data
+    """
+    np.random.seed(random_seed)
+    
+    n_total = len(ratings)
+    n_test = int(n_total * test_size)
+    
+    indices = np.arange(n_total)
+    np.random.shuffle(indices)
+    
+    test_idx = indices[:n_test]
+    train_idx = indices[n_test:]
+    
+    return {
+        'train': {
+            'user_indices': user_indices[train_idx],
+            'product_indices': product_indices[train_idx],
+            'ratings': ratings[train_idx],
+            'timestamps': timestamps[train_idx]
+        },
+        'test': {
+            'user_indices': user_indices[test_idx],
+            'product_indices': product_indices[test_idx],
+            'ratings': ratings[test_idx],
+            'timestamps': timestamps[test_idx]
+        }
+    }
+
+
+# ============================================================================
+# MISSING VALUE HANDLING
+# ============================================================================
 
 def detect_missing_values(data):
     """
@@ -21,6 +358,7 @@ def detect_missing_values(data):
             return np.isnan(data)
         else:
             return (data == b'') | (data == '')
+
 
 def handle_missing_values(data, strategy='mean', fill_value=0):
     """
@@ -102,6 +440,10 @@ def impute_missing_median(data, column_name=None):
             data_copy[np.isnan(data_copy)] = median_value
         return data_copy
 
+
+# ============================================================================
+# OUTLIER DETECTION
+# ============================================================================
 
 def detect_outliers_iqr(data, column_name=None, multiplier=1.5):
     """
@@ -185,6 +527,10 @@ def remove_outliers(data, outlier_mask):
     return filtered_data
 
 
+# ============================================================================
+# NORMALIZATION AND STANDARDIZATION
+# ============================================================================
+
 def normalize_minmax(data, feature_min=0, feature_max=1):
     """
     Min-Max normalization: scale to [feature_min, feature_max].
@@ -255,6 +601,10 @@ def standardize_zscore(data):
     return standardized
 
 
+# ============================================================================
+# FEATURE ENGINEERING
+# ============================================================================
+
 def unix_to_datetime_features(timestamps):
     """
     Convert Unix timestamps to datetime features.
@@ -265,8 +615,6 @@ def unix_to_datetime_features(timestamps):
     Returns:
         Dictionary of datetime features as NumPy arrays
     """
-    from datetime import datetime
-    
     features = {}
     features['year'] = np.array([datetime.fromtimestamp(ts).year for ts in timestamps])
     features['month'] = np.array([datetime.fromtimestamp(ts).month for ts in timestamps])
@@ -277,36 +625,129 @@ def unix_to_datetime_features(timestamps):
     return features
 
 
-def filter_by_min_ratings(data, user_id_col='UserId', product_id_col='ProductId', 
-                          min_user_ratings=5, min_product_ratings=5):
+def compute_user_stats(data, user_id_col='UserId', rating_col='Rating'):
     """
-    Filter users and products with minimum rating counts.
-    Reduces sparsity.
-    
-    Args:
-        data: Structured NumPy array with user and product IDs
-        user_id_col: Column name for user IDs
-        product_id_col: Column name for product IDs
-        min_user_ratings: Minimum ratings per user
-        min_product_ratings: Minimum ratings per product
+    Compute per-user statistics.
     
     Returns:
-        Filtered data array
+        Dictionary of user statistics arrays
     """
     user_ids = data[user_id_col]
-    product_ids = data[product_id_col]
+    ratings = data[rating_col]
     
-    unique_users, user_counts = np.unique(user_ids, return_counts=True)
-    unique_products, product_counts = np.unique(product_ids, return_counts=True)
+    unique_users = np.unique(user_ids)
+    stats = {
+        'user_id': unique_users,
+        'total_ratings': np.zeros(len(unique_users)),
+        'avg_rating': np.zeros(len(unique_users)),
+        'std_rating': np.zeros(len(unique_users)),
+        'min_rating': np.zeros(len(unique_users)),
+        'max_rating': np.zeros(len(unique_users))
+    }
     
-    valid_users = unique_users[user_counts >= min_user_ratings]
-    valid_products = unique_products[product_counts >= min_product_ratings]
+    for i, user_id in enumerate(unique_users):
+        user_mask = user_ids == user_id
+        user_ratings = ratings[user_mask]
+        
+        stats['total_ratings'][i] = len(user_ratings)
+        stats['avg_rating'][i] = np.mean(user_ratings)
+        stats['std_rating'][i] = np.std(user_ratings) if len(user_ratings) > 1 else 0.0
+        stats['min_rating'][i] = np.min(user_ratings)
+        stats['max_rating'][i] = np.max(user_ratings)
     
-    user_mask = np.isin(user_ids, valid_users)
-    product_mask = np.isin(product_ids, valid_products)
-    
-    filtered_mask = user_mask & product_mask
-    filtered_data = data[filtered_mask]
-    
-    return filtered_data
+    return stats
 
+
+def compute_product_stats(data, product_id_col='ProductId', rating_col='Rating'):
+    """
+    Compute per-product statistics.
+    
+    Returns:
+        Dictionary of product statistics arrays
+    """
+    product_ids = data[product_id_col]
+    ratings = data[rating_col]
+    
+    unique_products = np.unique(product_ids)
+    stats = {
+        'product_id': unique_products,
+        'total_ratings': np.zeros(len(unique_products)),
+        'avg_rating': np.zeros(len(unique_products)),
+        'std_rating': np.zeros(len(unique_products)),
+        'min_rating': np.zeros(len(unique_products)),
+        'max_rating': np.zeros(len(unique_products))
+    }
+    
+    for i, product_id in enumerate(unique_products):
+        product_mask = product_ids == product_id
+        product_ratings = ratings[product_mask]
+        
+        stats['total_ratings'][i] = len(product_ratings)
+        stats['avg_rating'][i] = np.mean(product_ratings)
+        stats['std_rating'][i] = np.std(product_ratings) if len(product_ratings) > 1 else 0.0
+        stats['min_rating'][i] = np.min(product_ratings)
+        stats['max_rating'][i] = np.max(product_ratings)
+    
+    return stats
+
+
+def compute_rating_deviation(user_rating, user_avg, product_avg):
+    """
+    Deviation of rating from user and product averages.
+    Personalization signal.
+    
+    Args:
+        user_rating: Individual rating value
+        user_avg: User's average rating
+        product_avg: Product's average rating
+    
+    Returns:
+        Deviation score
+    """
+    global_avg = (user_avg + product_avg) / 2
+    deviation = user_rating - global_avg
+    return deviation
+
+
+def compute_recency_score(timestamps, decay_factor=0.1):
+    """
+    Time-based weighting: recent ratings more important.
+    
+    Args:
+        timestamps: Array of Unix timestamps
+        decay_factor: Exponential decay factor
+    
+    Returns:
+        Recency scores (higher = more recent)
+    """
+    max_ts = np.max(timestamps)
+    time_diffs = max_ts - timestamps
+    
+    recency_scores = np.exp(-decay_factor * time_diffs / (365.25 * 24 * 3600))
+    return recency_scores
+
+
+def compute_rating_velocity(timestamps, window_days=30):
+    """
+    Ratings per time period (trending indicator).
+    
+    Args:
+        timestamps: Array of Unix timestamps
+        window_days: Time window in days
+    
+    Returns:
+        Rating velocity (ratings per window)
+    """
+    window_seconds = window_days * 24 * 3600
+    min_ts = np.min(timestamps)
+    max_ts = np.max(timestamps)
+    
+    num_windows = int((max_ts - min_ts) / window_seconds) + 1
+    window_counts = np.zeros(num_windows)
+    
+    for ts in timestamps:
+        window_idx = int((ts - min_ts) / window_seconds)
+        if window_idx < num_windows:
+            window_counts[window_idx] += 1
+    
+    return window_counts

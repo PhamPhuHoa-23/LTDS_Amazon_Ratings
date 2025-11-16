@@ -6,7 +6,8 @@ Student: Angela - MSSV: 23122030
 Package chứa tất cả modules cho recommendation system
 """
 
-from .data_loader import (
+from .data_processing import (
+    # Data loading
     load_csv_numpy,
     validate_data,
     get_basic_stats,
@@ -16,7 +17,27 @@ from .data_loader import (
     create_id_mappings,
     load_processed_data,
     sample_data,
-    train_test_split
+    train_test_split,
+    # Missing value handling
+    detect_missing_values,
+    handle_missing_values,
+    impute_missing_mean,
+    impute_missing_median,
+    # Outlier detection
+    detect_outliers_iqr,
+    detect_outliers_zscore,
+    remove_outliers,
+    # Normalization
+    normalize_minmax,
+    normalize_log,
+    standardize_zscore,
+    # Feature engineering
+    unix_to_datetime_features,
+    compute_user_stats,
+    compute_product_stats,
+    compute_rating_deviation,
+    compute_recency_score,
+    compute_rating_velocity
 )
 
 from .visualization import (
@@ -32,14 +53,19 @@ from .visualization import (
 )
 
 from .models import (
+    # Models
     PopularityRecommender,
     ItemBasedCF,
     UserBasedCF,
     SVDRecommender,
-    WeightedRecommender
-)
-
-from .utils import (
+    WeightedRecommender,
+    # Similarity functions
+    create_user_item_matrix,
+    cosine_similarity,
+    cosine_similarity_matrix,
+    pearson_correlation,
+    find_top_k_similar,
+    # Evaluation metrics
     rmse,
     mae,
     precision_at_k,
@@ -50,15 +76,14 @@ from .utils import (
     mean_reciprocal_rank,
     coverage,
     diversity,
+    # Utility functions
     normalize_minmax,
     standardize,
-    cosine_similarity,
-    cosine_similarity_matrix,
-    pearson_correlation,
     get_user_item_pairs,
     get_product_users,
     create_sparse_matrix,
     compute_sparsity,
+    top_k_indices,
     print_metrics,
     save_results
 )
@@ -67,7 +92,7 @@ __version__ = '1.0.0'
 __author__ = 'Angela - MSSV: 23122030'
 
 __all__ = [
-    # Data loader
+    # Data processing - Loading
     'load_csv_numpy',
     'validate_data',
     'get_basic_stats',
@@ -78,7 +103,26 @@ __all__ = [
     'load_processed_data',
     'sample_data',
     'train_test_split',
-    
+    # Data processing - Missing values
+    'detect_missing_values',
+    'handle_missing_values',
+    'impute_missing_mean',
+    'impute_missing_median',
+    # Data processing - Outliers
+    'detect_outliers_iqr',
+    'detect_outliers_zscore',
+    'remove_outliers',
+    # Data processing - Normalization
+    'normalize_minmax',
+    'normalize_log',
+    'standardize_zscore',
+    # Data processing - Feature engineering
+    'unix_to_datetime_features',
+    'compute_user_stats',
+    'compute_product_stats',
+    'compute_rating_deviation',
+    'compute_recency_score',
+    'compute_rating_velocity',
     # Visualization
     'plot_rating_distribution',
     'plot_top_products',
@@ -89,15 +133,19 @@ __all__ = [
     'plot_sparsity_analysis',
     'plot_metrics_comparison',
     'plot_recommendation_results',
-    
     # Models
     'PopularityRecommender',
     'ItemBasedCF',
     'UserBasedCF',
     'SVDRecommender',
     'WeightedRecommender',
-    
-    # Utils
+    # Similarity
+    'create_user_item_matrix',
+    'cosine_similarity',
+    'cosine_similarity_matrix',
+    'pearson_correlation',
+    'find_top_k_similar',
+    # Evaluation metrics
     'rmse',
     'mae',
     'precision_at_k',
@@ -108,15 +156,14 @@ __all__ = [
     'mean_reciprocal_rank',
     'coverage',
     'diversity',
+    # Utilities
     'normalize_minmax',
     'standardize',
-    'cosine_similarity',
-    'cosine_similarity_matrix',
-    'pearson_correlation',
     'get_user_item_pairs',
     'get_product_users',
     'create_sparse_matrix',
     'compute_sparsity',
+    'top_k_indices',
     'print_metrics',
     'save_results'
 ]
