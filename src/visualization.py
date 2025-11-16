@@ -44,7 +44,6 @@ def plot_rating_distribution(ratings, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -86,7 +85,6 @@ def plot_top_products(product_ids, ratings, top_n=20, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -127,7 +125,6 @@ def plot_user_activity(user_ids, top_n=20, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -170,7 +167,6 @@ def plot_temporal_trend(timestamps, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -210,7 +206,6 @@ def plot_feature_distributions(features_dict, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -242,7 +237,6 @@ def plot_correlation_heatmap(features_matrix, feature_names, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -283,7 +277,6 @@ def plot_sparsity_analysis(n_users, n_products, n_ratings, save_path=None):
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
     plt.show()
 
 
@@ -378,15 +371,8 @@ def plot_recommendation_results(product_ids, ratings, scores, title="Top Recomme
 
 
 if __name__ == "__main__":
-    # Test visualization functions
-    print("Testing visualization module...")
-    
-    # Generate sample data
+    # Chạy thử các hàm vẽ (in rất ngắn gọn)
     np.random.seed(42)
-    ratings = np.random.choice([1.0, 2.0, 3.0, 4.0, 5.0], size=10000, 
+    ratings = np.random.choice([1.0, 2.0, 3.0, 4.0, 5.0], size=10000,
                                p=[0.05, 0.05, 0.1, 0.2, 0.6])
-    
-    print("✓ Generating test plot...")
     plot_rating_distribution(ratings)
-    
-    print("\nAll tests passed!")

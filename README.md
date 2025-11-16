@@ -1,6 +1,84 @@
-# Amazon Beauty Products Recommendation System
+# Lab2DS — Hệ khuyến nghị Amazon Beauty (NumPy-first)
 
-A comprehensive recommendation system built using **NumPy only** for data processing, implementing collaborative filtering and matrix factorization techniques from scratch.
+Repository này triển khai pipeline đơn giản để xử lý dữ liệu ratings và xây dựng các recommender cơ bản cho bộ dữ liệu Amazon Beauty.
+
+Tóm tắt nhanh:
+- Kiến trúc: Notebooks (01→02→03) + mô-đun trong `src/` (NumPy-first)
+- Mục tiêu: sạch dữ liệu, tạo feature vectorized, thử các recommender (popularity, CF, SVD), so sánh kết quả
+- Lưu trữ trung gian: `data/processed/` (các file `.npz`) — notebooks sau tái sử dụng các file này
+
+----
+
+## Yêu cầu & cài đặt
+
+- Python 3.8+
+- Cài dependencies từ `requirements.txt`:
+
+```powershell
+pip install -r requirements.txt
+```
+
+## Dữ liệu
+
+- Đặt file `ratings_Beauty.csv` vào `data/raw/` (tải từ Kaggle nếu cần).
+
+## Quy trình khuyến nghị (recommended)
+
+1. `01_data_exploration.ipynb` — Khám phá dữ liệu và sinh artifact khám phá.
+   - Lưu: `data/processed/exploration_outputs.npz` (ví dụ: `ratings`, `timestamps`, `unique_users`, `unique_products`, `user_counts`, `product_counts`).
+
+2. `02_preprocessing.ipynb` — Tiền xử lý (vectorized) và tạo các file xử lý.
+   - Lưu: `data/processed/preprocessed_data.npz`, `data/processed/id_mappings.npz`, ...
+
+3. `03_modeling.ipynb` — Huấn luyện, đánh giá và so sánh models (Popularity, CF, TruncatedSVD).
+   - Lưu đồ thị so sánh vào: `results/comparison_sklearn.png`.
+
+Luôn chạy theo thứ tự: `01` → `02` → `03`.
+
+## Chạy nhanh các module
+
+```powershell
+python src/models.py        # chạy kiểm tra ngắn gọn của models (in kết quả ngắn)
+python src/visualization.py # chạy demo vẽ tối thiểu
+```
+
+## Lưu ý về coding conventions
+
+- NumPy-first: tránh dùng pandas trừ khi thực sự cần.
+- Prints: in ngắn gọn, bằng tiếng Việt ở notebooks; KHÔNG in các ký tự trang trí (ví dụ `====`, ✓). Giữ thuật ngữ chuyên môn bằng tiếng Anh (SVD, CF, cosine, etc.).
+- Persistence: notebooks lưu artifact bằng `np.savez_compressed(...)` trong `data/processed/`.
+
+## Cấu trúc thư mục
+
+```
+Lab2DS/
+├── data/
+│   ├── raw/               # ratings_Beauty.csv
+│   └── processed/         # .npz do notebooks tạo
+├── notebooks/
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_preprocessing.ipynb
+│   └── 03_modeling.ipynb
+├── src/
+│   ├── data_processing.py
+│   ├── models.py
+│   └── visualization.py
+├── results/               # comparison_sklearn.png, ...
+├── requirements.txt
+└── README.md
+```
+
+## Ghi chú
+
+- Không commit dữ liệu thô lớn vào repo.
+- Nếu cần thay đổi định dạng lưu (vd Parquet) hoặc thêm pandas/scipy, thông báo để xin phép tác giả.
+
+----
+
+Nếu bạn muốn tôi cập nhật README chi tiết hơn (thêm lệnh chạy mẫu, ví dụ outputs), nói tôi sẽ thêm.
+# Amazon Beauty Products - Recommendation Workflow (NumPy-first)
+
+Small recommendation-data workflow for Amazon Beauty ratings. The project uses NumPy-first, vectorized implementations for preprocessing and simple recommenders (popularity, CF, SVD). Notebooks print concise Vietnamese messages and save small artifacts under `data/processed/` for reuse.
 
 ## Table of Contents
 
@@ -235,36 +313,25 @@ pip install -r requirements.txt
 
 ### Step 1: Data Exploration
 
-Run the exploration notebook to understand the dataset:
+Run the exploration notebook to inspect the raw data and generate small artifacts used by later notebooks:
 
 ```bash
 jupyter notebook notebooks/01_data_exploration.ipynb
 ```
 
-This notebook covers:
-- Data overview and quality check
-- Rating distribution analysis
-- User behavior patterns
-- Product popularity trends
-- Temporal analysis
-- Sparsity calculation
+This notebook prints concise Vietnamese messages and saves `data/processed/exploration_outputs.npz` (arrays such as `ratings`, `timestamps`, `unique_users`, `unique_products`, `user_counts`, `product_counts`).
 
 ### Step 2: Data Preprocessing
 
-Run the preprocessing notebook:
+Run the preprocessing notebook (prints concise Vietnamese messages):
 
 ```bash
 jupyter notebook notebooks/02_preprocessing.ipynb
 ```
 
-This applies:
-- Missing value handling
-- Outlier detection
-- Normalization/standardization
-- Feature engineering
-- Data filtering
+This notebook performs vectorized preprocessing and saves processed arrays under `data/processed/` (examples: `preprocessed_data.npz`, `id_mappings.npz`).
 
-### Step 3: Build Recommendation System
+### Step 3: Build & Evaluate Models
 
 Run the modeling notebook:
 
@@ -272,35 +339,20 @@ Run the modeling notebook:
 jupyter notebook notebooks/03_modeling.ipynb
 ```
 
-This implements:
-- Popularity-based recommendations
-- User-based collaborative filtering
-- Item-based collaborative filtering
-- SVD matrix factorization
-- SGD matrix factorization
-- Model evaluation and comparison
+This notebook trains recommenders (popularity, CF, TruncatedSVD via sklearn), evaluates them, and saves comparison plots to `results/`.
 
-### Using Functions Directly
+Run notebooks in order `01` → `02` → `03` so downstream notebooks can reuse saved artifacts.
 
-```python
-from src.data_loader import load_csv_numpy
-from src.similarity import create_user_item_matrix, cosine_similarity_matrix
-from src.models import svd_numpy, matrix_factorization_sgd
+### Quick module checks
 
-# Load data
-data, header = load_csv_numpy('data/raw/ratings_Beauty.csv')
+Run short sanity checks from the command line:
 
-# Create user-item matrix
-matrix, user_map, product_map = create_user_item_matrix(
-    data['UserId'], data['ProductId'], data['Rating']
-)
-
-# Apply SVD
-U, Sigma, Vt = svd_numpy(matrix.T, k_factors=10)
-
-# Or use SGD
-P, Q = matrix_factorization_sgd(matrix, K=10, steps=1000)
+```powershell
+python src/models.py        # prints short example recommendations
+python src/visualization.py # runs a minimal plot demo
 ```
+
+Prefer calling functions in `src/data_processing.py` from notebooks/scripts rather than reimplementing logic.
 
 ---
 
@@ -350,34 +402,33 @@ The notebooks include visualizations for:
 
 ```
 Lab2DS/
-├── README.md                    # This file
-├── requirements.txt             # Python dependencies
-├── .gitignore                   # Git ignore rules
+├── README.md
+├── requirements.txt
+├── .gitignore
 ├── data/
 │   ├── raw/
-│   │   └── ratings_Beauty.csv   # Original dataset
-│   └── processed/               # Processed data files
+│   │   └── ratings_Beauty.csv
+│   └── processed/               # Saved .npz files used by notebooks (e.g. exploration_outputs.npz, preprocessed_data.npz)
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb    # EDA and analysis
-│   ├── 02_preprocessing.ipynb        # Data preprocessing
-│   └── 03_modeling.ipynb             # Recommendation system
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_preprocessing.ipynb
+│   └── 03_modeling.ipynb
 ├── src/
 │   ├── __init__.py
-│   ├── data_loader.py          # CSV loading, validation, stats
-│   ├── data_processing.py      # Missing values, outliers, normalization
-│   ├── feature_engineering.py  # Feature creation
-│   ├── similarity.py           # Similarity computations
-│   └── models.py               # ML algorithms from scratch
-└── kaggle_insights/            # Reference insights from Kaggle
+│   ├── data_processing.py      # Load/clean/feature-engineer functions (NumPy-first)
+│   ├── models.py               # Recommenders (popularity, CF, SVD wrapper, utilities)
+│   └── visualization.py        # Plot helpers used by notebooks
+└── results/                     # Generated plots (comparison_sklearn.png, ...)
 ```
 
 ### File Descriptions
 
-- **data_loader.py**: Load CSV using NumPy, validate data, compute statistics
-- **data_processing.py**: Handle missing values, detect outliers, normalize/standardize
-- **feature_engineering.py**: Compute user/product stats, recency scores, velocity
-- **similarity.py**: Cosine similarity, Pearson correlation, user-item matrix
-- **models.py**: SVD, matrix factorization SGD, evaluation metrics, cross-validation
+- `data_processing.py`: functions to load, clean, filter, and create mappings/features using NumPy.
+- `models.py`: implementations of simple recommenders (Popularity, Item/User CF, SVD wrapper) and evaluation utilities.
+- `visualization.py`: plotting helpers used by notebooks to visualize distributions, trends, and results.
+
+Notes:
+- Notebooks save processed artifacts to `data/processed/` and plots to `results/`. Do not commit large data files to the repo; use the processed folder for generated `.npz` artifacts created by notebooks.
 
 ---
 

@@ -122,7 +122,7 @@ class ItemBasedCF:
         
         self.product_ids = np.arange(n_products)
         
-        print(f"Similarity matrix computed: {self.similarity_matrix.shape}")
+        # similarity matrix đã được tính xong (không in thông tin chi tiết)
         
     def recommend(self, product_id, top_n=10, exclude_products=None):
         """
@@ -351,7 +351,7 @@ class SVDRecommender:
         self.sigma = self.sigma[:self.n_components]
         self.Vt = self.Vt[:self.n_components, :]
         
-        print(f"SVD completed: {self.U.shape} × {self.sigma.shape} × {self.Vt.shape}")
+        # SVD hoàn tất (không in thông tin chi tiết)
         
     def reconstruct_matrix(self):
         """
@@ -1030,23 +1030,14 @@ def top_k_indices(array, k, reverse=False):
 
 def print_metrics(metrics_dict, model_name="Model"):
     """
-    Pretty print evaluation metrics
-    
-    Parameters:
-    -----------
-    metrics_dict : dict
-        Dictionary of {metric_name: value}
-    model_name : str
-        Name of model
+    In các metric đơn giản, mỗi dòng: <metric>: <value>
     """
-    print(f"\n{'='*60}")
-    print(f"EVALUATION METRICS: {model_name}")
-    print(f"{'='*60}")
-    
+    print(f"{model_name} metrics:")
     for metric, value in metrics_dict.items():
-        print(f"  {metric:.<40} {value:.6f}")
-    
-    print(f"{'='*60}\n")
+        try:
+            print(f"{metric}: {value:.6f}")
+        except Exception:
+            print(f"{metric}: {value}")
 
 
 def save_results(filepath, **kwargs):
@@ -1061,43 +1052,35 @@ def save_results(filepath, **kwargs):
         Data to save
     """
     np.savez_compressed(filepath, **kwargs)
-    print(f"✓ Results saved to: {filepath}")
+    print(f"Results saved to: {filepath}")
 
 
 if __name__ == "__main__":
-    # Test models
-    print("Testing recommendation models...")
-    
-    # Generate sample data
+    # Chạy thử (sanity checks) - in rất ngắn gọn
     np.random.seed(42)
     n_samples = 1000
     n_users = 100
     n_products = 50
-    
+
     user_indices = np.random.randint(0, n_users, n_samples)
     product_indices = np.random.randint(0, n_products, n_samples)
     ratings = np.random.choice([1.0, 2.0, 3.0, 4.0, 5.0], n_samples)
     timestamps = np.random.randint(1000000000, 1700000000, n_samples)
-    
-    # Test Popularity Recommender
-    print("\n1. Testing Popularity Recommender...")
+
+    # Popularity
     pop_model = PopularityRecommender()
     pop_model.fit(product_indices, ratings)
-    recommendations = pop_model.recommend(top_n=5)
-    print(f"   ✓ Top 5 recommendations: {recommendations}")
-    
-    # Test Item-Based CF
-    print("\n2. Testing Item-Based CF...")
+    recs = pop_model.recommend(top_n=5)
+    print("Top 5 (popularity):", recs)
+
+    # Item-based CF
     item_cf = ItemBasedCF()
     item_cf.fit(user_indices, product_indices, ratings, n_products)
-    recommendations = item_cf.recommend(product_id=0, top_n=5)
-    print(f"   ✓ Top 5 similar items to product 0: {recommendations}")
-    
-    # Test SVD
-    print("\n3. Testing SVD Recommender...")
+    recs = item_cf.recommend(product_id=0, top_n=5)
+    print("Top 5 (item-similar to 0):", recs)
+
+    # SVD
     svd_model = SVDRecommender(n_components=10)
     svd_model.fit(user_indices, product_indices, ratings, n_users, n_products)
-    recommendations = svd_model.recommend(user_id=0, top_n=5)
-    print(f"   ✓ Top 5 recommendations for user 0: {recommendations}")
-    
-    print("\nAll model tests passed!")
+    recs = svd_model.recommend(user_id=0, top_n=5)
+    print("Top 5 (SVD for user 0):", recs)
