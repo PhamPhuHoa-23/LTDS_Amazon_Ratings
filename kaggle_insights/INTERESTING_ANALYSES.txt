@@ -1,0 +1,98 @@
+=== INTERESTING ANALYSIS IDEAS FOR BONUS POINTS ===
+
+## 1. TEMPORAL ANALYSIS
+- Product popularity trends over time
+- Seasonality in beauty product purchases
+- Rating patterns: Do ratings change over product lifecycle?
+- User behavior evolution: Active periods vs dormant periods
+
+## 2. USER SEGMENTATION
+- Power users (many ratings) vs casual users (few ratings)
+- Rating behavior: Harsh critics vs easy raters (avg rating)
+- Product diversity: Specialists vs generalists
+- Engagement patterns: Burst activity vs steady
+
+## 3. PRODUCT ANALYSIS
+- High-volume vs niche products
+- Rating quality vs quantity correlation
+- Product lifespan: New vs established
+- Polarizing products (high variance in ratings)
+
+## 4. RATING PATTERNS
+- Rating inflation over time?
+- First rating vs subsequent ratings
+- Time gap between purchases/ratings
+- Rating consistency per user
+
+## 5. COLD START SOLUTIONS
+- Popularity + category/attributes (if available)
+- New user onboarding strategy
+- New product launch strategy
+- Hybrid approaches
+
+## 6. ADVANCED FEATURES (Feature Engineering)
+- User average rating (harsh vs lenient)
+- Product average rating (quality indicator)
+- Rating deviation (controversial products)
+- User activity level (number of ratings)
+- Product popularity (number of ratings)
+- Time since last rating (recency)
+- Rating velocity (ratings per time period)
+- User-product rating difference (personalization signal)
+
+## 7. HYPOTHESIS TESTING
+- H0: Product popularity doesn't affect average rating
+- H0: Time of year doesn't affect purchase patterns
+- H0: User rating behavior is consistent over time
+- H0: Product age doesn't correlate with rating variance
+
+## 8. BUSINESS INSIGHTS
+- Customer retention indicators
+- Product success predictors
+- Optimal inventory management
+- Marketing campaign effectiveness
+- Cross-selling opportunities
+
+## 9. RECOMMENDATION DIVERSITY
+- Not just accuracy, but diversity
+- Serendipity: Unexpected but relevant
+- Coverage: Recommend long-tail products
+- Fairness: Don't over-recommend popular items
+
+## 10. MATRIX FACTORIZATION INSIGHTS
+- Latent factor interpretation
+- Dimensionality vs performance trade-off
+- Regularization impact
+- User/item embeddings visualization (t-SNE/PCA)
+
+## 11. RATING BEHAVIOR ANALYSIS
+- Users per rating level breakdown:
+  * Count unique users who gave 5-star ratings
+  * Count unique users who gave 4-star ratings
+  * ... down to 1-star
+- Insight: ~68% users give 5-star ratings (positive bias)
+- Helps understand rating distribution psychology
+
+## 12. PRODUCT POPULARITY VS QUALITY
+- Scatter plot: # ratings vs avg rating
+- Question: Do popular products have better ratings?
+- Hypothesis test: Correlation between popularity and quality
+- Insight: Often NO strong correlation (popular ≠ better)
+
+## 13. RATING INTERVAL ANALYSIS
+- Fair comparison requires products with ratings across ALL time intervals
+- Products with sporadic ratings may have biased averages
+- Filter: Only keep products with min threshold in each interval
+- Trade-off: Smaller sample size but more reliable comparisons
+
+## 14. USER ENGAGEMENT METRICS
+- Ratings per user distribution (highly skewed)
+- Top users can have 100+ ratings
+- Bottom 50% of users have <5 ratings
+- Power law distribution: Few power users, many casual users
+
+## 15. PERCENTAGE OF HIGH-RATED PRODUCTS
+- Calculate: % of products with 5-star ratings
+- Typically ~80% of products have at least one 5-star rating
+- Indicates positive bias in beauty product reviews
+- Important for cold-start recommendations

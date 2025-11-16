@@ -1,0 +1,52 @@
+=== AMAZON BEAUTY RATINGS DATASET CHARACTERISTICS ===
+
+## DATASET OVERVIEW
+- File: ratings_Beauty.csv
+- Total records: 2,023,070 ratings
+- Columns: UserId, ProductId, Rating, Timestamp
+
+## DATA TYPES
+- UserId: String/Object (unique identifier)
+- ProductId: String/Object (unique identifier)  
+- Rating: Float (1.0 to 5.0)
+- Timestamp: Integer (Unix timestamp)
+
+## KEY STATISTICS
+- Unique users: ~1,210,271
+- Unique products: ~249,274
+- Rating scale: 1.0 to 5.0
+- Null values: Some present (need handling)
+
+## RATING DISTRIBUTION PATTERN
+- 5 stars: Most common (highly skewed)
+- 4 stars: Second most common
+- 1-3 stars: Less frequent
+- Implication: Positive bias in ratings
+
+## SPARSITY ISSUE
+- Huge matrix: 1.2M users × 249K products
+- Most cells empty (user hasn't rated product)
+- Sparsity: >99.9%
+- Strategy: Filter by minimum ratings threshold
+
+## TIMESTAMP INFO
+- Unix epoch format (seconds since 1970)
+- Useful for temporal analysis:
+  * Trending products over time
+  * Seasonal patterns
+  * User behavior evolution
+  * Recency weighting in recommendations
+
+## PROCESSING CHALLENGES
+1. Memory: Full matrix too large for RAM
+2. Sparsity: Most user-product pairs unknown
+3. Cold start: New users/products with no ratings
+4. Computational: Distance/similarity calculations expensive
+
+## NUMPY STRATEGIES
+- Sample subset for development
+- Implement sparse matrix representation
+- Filter users/products with min threshold (e.g., ≥5 ratings)
+- Vectorized operations (avoid loops)
+- Chunked processing for large operations
+
