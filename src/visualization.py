@@ -1,16 +1,128 @@
 """
-Visualization Module
+Visualization Module (Consolidated with OOP Visualizer class)
 CSC17104 - Programming for Data Science
 Student: Angela - MSSV: 23122030
 
 Module này chứa các functions để visualize dữ liệu và kết quả
 Tất cả functions sử dụng Matplotlib và Seaborn
+Cũng bao gồm Visualizer class cho OOP-style usage
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+
+
+# ============================================================================
+# VISUALIZER CLASS (OOP)
+# ============================================================================
+
+class Visualizer:
+    """Tập hợp các methods để visualize dữ liệu và kết quả"""
+    
+    def __init__(self, figsize=(14, 6), dpi=100, style='whitegrid'):
+        """Initialize Visualizer with plot settings"""
+        self.figsize = figsize
+        self.dpi = dpi
+        sns.set_style(style)
+        plt.rcParams['figure.figsize'] = figsize
+        plt.rcParams['figure.dpi'] = dpi
+        plt.rcParams['font.size'] = 10
+    
+    @staticmethod
+    def plot_rating_distribution(ratings, title="Rating Distribution"):
+        """Vẽ phân bố ratings"""
+        unique_ratings, counts = np.unique(ratings, return_counts=True)
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.bar(unique_ratings, counts, color='steelblue', edgecolor='black', alpha=0.7)
+        ax.set_xlabel('Rating')
+        ax.set_ylabel('Frequency')
+        ax.set_title(title)
+        ax.grid(alpha=0.3)
+        return fig, ax
+    
+    @staticmethod
+    def plot_user_activity(user_n_ratings, title="User Activity Distribution"):
+        """Vẽ phân bố hoạt động của users"""
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.hist(user_n_ratings, bins=50, color='coral', edgecolor='black', alpha=0.7)
+        ax.set_xlabel('Number of Ratings per User')
+        ax.set_ylabel('Frequency')
+        ax.set_title(title)
+        ax.set_yscale('log')
+        ax.grid(alpha=0.3)
+        return fig, ax
+    
+    @staticmethod
+    def plot_product_popularity(product_n_ratings, title="Product Popularity Distribution"):
+        """Vẽ phân bố popularity của products"""
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.hist(product_n_ratings, bins=50, color='seagreen', edgecolor='black', alpha=0.7)
+        ax.set_xlabel('Number of Ratings per Product')
+        ax.set_ylabel('Frequency')
+        ax.set_title(title)
+        ax.set_yscale('log')
+        ax.grid(alpha=0.3)
+        return fig, ax
+    
+    @staticmethod
+    def plot_temporal_trend(years, title="Rating Activity Over Time"):
+        """Vẽ xu hướng temporal"""
+        year_counts = np.bincount(years - np.min(years))
+        year_labels = np.arange(np.min(years), np.max(years) + 1)
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(year_labels[:len(year_counts)], year_counts, marker='o', linewidth=2, color='darkviolet')
+        ax.set_xlabel('Year')
+        ax.set_ylabel('Number of Ratings')
+        ax.set_title(title)
+        ax.grid(alpha=0.3)
+        return fig, ax
+    
+    @staticmethod
+    def plot_model_comparison(models_data, metrics, title="Model Comparison"):
+        """Vẽ biểu đồ so sánh các models"""
+        model_names = list(models_data.keys())
+        x = np.arange(len(model_names))
+        width = 0.2
+        fig, ax = plt.subplots(figsize=(14, 6))
+        for i, metric in enumerate(metrics):
+            values = [models_data[model].get(metric, 0) for model in model_names]
+            ax.bar(x + i * width, values, width, label=metric)
+        ax.set_xlabel('Model')
+        ax.set_ylabel('Score')
+        ax.set_title(title)
+        ax.set_xticks(x + width)
+        ax.set_xticklabels(model_names, rotation=45, ha='right')
+        ax.legend()
+        ax.grid(alpha=0.3, axis='y')
+        return fig, ax
+    
+    @staticmethod
+    def plot_feature_distributions(features_dict, title="Feature Distributions"):
+        """Vẽ phân bố của nhiều features"""
+        n_features = len(features_dict)
+        n_cols = 3
+        n_rows = (n_features + n_cols - 1) // n_cols
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4*n_rows))
+        axes = axes.flatten()
+        for idx, (name, values) in enumerate(features_dict.items()):
+            ax = axes[idx]
+            ax.hist(values, bins=50, edgecolor='black', alpha=0.7)
+            ax.set_xlabel('Value')
+            ax.set_ylabel('Frequency')
+            ax.set_title(f'{name} Distribution')
+            ax.grid(alpha=0.3)
+        for idx in range(n_features, len(axes)):
+            axes[idx].axis('off')
+        fig.suptitle(title, fontsize=14)
+        plt.tight_layout()
+        return fig, axes
+
+
+# ============================================================================
+# UTILITY FUNCTIONS (BACKWARD COMPATIBILITY & LEGACY API)
+# ============================================================================
 
 
 def plot_rating_distribution(ratings, save_path=None):

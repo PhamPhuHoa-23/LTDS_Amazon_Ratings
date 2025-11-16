@@ -1,13 +1,110 @@
 """
-Recommendation Models Module
+Recommendation Models Module (Consolidated with TruncatedSVD)
 CSC17104 - Programming for Data Science
 Student: Angela - MSSV: 23122030
 
 Module này chứa các recommendation algorithms
 Tất cả models được implement chỉ bằng NumPy (không dùng Scikit-learn)
+Bao gồm TruncatedSVD implementation từ scratch (power iteration)
 """
 
 import numpy as np
+
+
+# ============================================================================
+# TRUNCATED SVD CLASS (FROM SCRATCH - POWER ITERATION)
+# ============================================================================
+
+class TruncatedSVD:
+    """
+    Truncated SVD dùng power iteration method (từ scratch, không dùng sklearn)
+    Phù hợp cho dense hoặc sparse matrices
+    """
+    
+    def __init__(self, n_components=50, n_iterations=20, random_state=42):
+        """
+        Parameters:
+        -----------
+        n_components : int
+            Số lượng components (rank k)
+        n_iterations : int
+            Số iterations cho power method
+        random_state : int
+            Random seed
+        """
+        self.n_components = n_components
+        self.n_iterations = n_iterations
+        self.random_state = random_state
+        self.U = None
+        self.Vt = None
+        self.singular_values = None
+    
+    def fit(self, X):
+        """
+        Fit SVD trên matrix X
+        
+        Parameters:
+        -----------
+        X : numpy array
+            Dense matrix (m x n)
+        """
+        np.random.seed(self.random_state)
+        m, n = X.shape
+        
+        # Initialize random vector
+        v = np.random.randn(n)
+        v = v / np.linalg.norm(v)
+        
+        # Power iteration để tính principal components
+        U_list = []
+        singular_values = []
+        X_copy = X.copy()
+        
+        for i in range(min(self.n_components, min(m, n))):
+            # Power iterations
+            for _ in range(self.n_iterations):
+                u = X_copy.T @ v
+                u = u / np.linalg.norm(u)
+                v = X_copy @ u
+                v = v / np.linalg.norm(v)
+            
+            # Compute singular value
+            sigma = np.linalg.norm(X_copy @ u)
+            
+            if sigma < 1e-10:
+                break
+            
+            U_list.append(u)
+            singular_values.append(sigma)
+            
+            # Deflation: remove component từ X
+            X_copy = X_copy - sigma * np.outer(v, u)
+        
+        # Store results
+        self.singular_values = np.array(singular_values)
+        self.Vt = np.array(U_list).T  # Shape: (n, k)
+        
+        # Compute U: project X onto V
+        self.U = X @ self.Vt  # Shape: (m, k)
+        
+        # Normalize U columns
+        for i in range(self.U.shape[1]):
+            norm = np.linalg.norm(self.U[:, i])
+            if norm > 0:
+                self.U[:, i] /= norm
+                self.Vt[:, i] *= norm
+    
+    def reconstruct(self):
+        """Reconstruct approximation của original matrix"""
+        if self.U is None or self.Vt is None:
+            raise ValueError("Model chưa được fit")
+        return self.U @ (self.singular_values[:, None] * self.Vt.T)
+    
+    def transform(self, X):
+        """Transform new data"""
+        if self.Vt is None:
+            raise ValueError("Model chưa được fit")
+        return X @ self.Vt
 
 
 class PopularityRecommender:
