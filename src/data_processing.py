@@ -1,11 +1,10 @@
 """
-Data Processing Module (Consolidated with OOP DataProcessor class)
+Data Processing Module
 CSC17104 - Programming for Data Science
-Student: Angela - MSSV: 23122030
+Sinh viên: Phạm Phú Hòa - MSSV: 23122030
 
-Module này chứa tất cả functions để load, validate, process, và engineer features từ dữ liệu
-Tất cả operations đều vectorized để tối ưu performance
-Cũng bao gồm DataProcessor class cho OOP-style usage
+Module chứa functions để load, validate, filter, và preprocess dữ liệu ratings.
+Tất cả operations vectorized bằng NumPy.
 """
 
 import numpy as np
@@ -134,13 +133,29 @@ class DataProcessor:
     @staticmethod
     def extract_temporal_features(timestamps):
         """Extract temporal features từ timestamps (vectorized)"""
+        # Convert sang datetime64 (chuẩn hơn và nhanh hơn)
         datetime_array = timestamps.astype('datetime64[s]')
+        
+        # Extract year (vectorized)
         years = datetime_array.astype('datetime64[Y]').astype(int) + 1970
+        
+        # Extract month (vectorized): 1-12
         months = datetime_array.astype('datetime64[M]').astype(int) % 12 + 1
-        weekdays = (datetime_array.astype('datetime64[D]').view('int64') - 4) % 7
+        
+        # Extract weekday (vectorized): 0=Monday, 6=Sunday
+        # datetime64[D] epoch là 1970-01-01 (Thursday = 3)
+        # Cộng thêm offset để Monday = 0
+        days_since_epoch = datetime_array.astype('datetime64[D]').view('int64')
+        weekdays = (days_since_epoch + 3) % 7  # +3 vì epoch là Thursday
+        
+        # Recency: days since most recent timestamp
         max_timestamp = np.max(timestamps)
         days_since = (max_timestamp - timestamps) / (24 * 3600)
+        
+        # Recency weight: exponential decay (recent = higher weight)
+        # exp(-days/365) means 1 year ago ≈ 0.368, recent ≈ 1.0
         recency_weight = np.exp(-days_since / 365.0)
+        
         return years, months, weekdays, days_since, recency_weight
     
     @staticmethod
@@ -337,47 +352,60 @@ def filter_by_min_ratings(user_ids, product_ids, ratings, timestamps,
                           max_iterations=10):
     """
     Filter users và products có ít ratings (vectorized, iterative)
+    Iterative vì sau khi loại user, số ratings của product giảm, và ngược lại
     
     Parameters:
     -----------
     user_ids, product_ids, ratings, timestamps : numpy arrays
         Dữ liệu cần filter
     min_user_ratings : int
-        Số ratings tối thiểu cho user
+        Số ratings tối thiểu cho user (default: 5)
     min_product_ratings : int
-        Số ratings tối thiểu cho product
+        Số ratings tối thiểu cho product (default: 5)
     max_iterations : int
-        Số iterations tối đa
+        Số iterations tối đa (default: 10)
         
     Returns:
     --------
-    tuple : Filtered arrays
+    tuple : Filtered arrays (user_ids, product_ids, ratings, timestamps)
     """
     iteration = 0
+    initial_count = len(ratings)
     
     while iteration < max_iterations:
         prev_n = len(ratings)
         
+        # Count ratings per user (vectorized)
         unique_users, user_inv = np.unique(user_ids, return_inverse=True)
         user_counts = np.bincount(user_inv)
         
+        # Count ratings per product (vectorized)
         unique_products, product_inv = np.unique(product_ids, return_inverse=True)
         product_counts = np.bincount(product_inv)
         
+        # Create masks for valid users and products
         user_valid = user_counts[user_inv] >= min_user_ratings
         product_valid = product_counts[product_inv] >= min_product_ratings
         
+        # Combined mask
         valid_mask = user_valid & product_valid
         
+        # Apply filter
         user_ids = user_ids[valid_mask]
         product_ids = product_ids[valid_mask]
         ratings = ratings[valid_mask]
         timestamps = timestamps[valid_mask]
         
+        # Check convergence: nếu không thay đổi thì dừng
         if len(ratings) == prev_n:
             break
             
         iteration += 1
+    
+    removed_count = initial_count - len(ratings)
+    removed_pct = (removed_count / initial_count * 100) if initial_count > 0 else 0
+    
+    # Không cần print vì sẽ gọi ở notebook level
     
     return user_ids, product_ids, ratings, timestamps
 
@@ -881,18 +909,25 @@ def compute_rating_deviation(user_rating, user_avg, product_avg):
 def compute_recency_score(timestamps, decay_factor=0.1):
     """
     Time-based weighting: recent ratings more important.
+    Dùng exponential decay theo thời gian.
     
     Args:
         timestamps: Array of Unix timestamps
-        decay_factor: Exponential decay factor
+        decay_factor: Exponential decay factor (higher = faster decay)
+                      Default 0.1 means half-life ~6.93 time units
     
     Returns:
-        Recency scores (higher = more recent)
+        Recency scores (higher = more recent, range 0-1)
     """
     max_ts = np.max(timestamps)
-    time_diffs = max_ts - timestamps
+    # Time differences in days
+    time_diffs_days = (max_ts - timestamps) / (24 * 3600)
     
-    recency_scores = np.exp(-decay_factor * time_diffs / (365.25 * 24 * 3600))
+    # Exponential decay: score = exp(-decay_factor * days_ago / 365)
+    # Ví dụ: với decay=0.1, sau 1 năm score = exp(-0.1) ≈ 0.90
+    #         sau 10 năm score = exp(-1.0) ≈ 0.37
+    recency_scores = np.exp(-decay_factor * time_diffs_days / 365.0)
+    
     return recency_scores
 
 

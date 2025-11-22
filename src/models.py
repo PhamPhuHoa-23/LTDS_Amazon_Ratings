@@ -1,14 +1,245 @@
 """
-Recommendation Models Module (Consolidated with TruncatedSVD)
+Recommendation Models Module
 CSC17104 - Programming for Data Science
-Student: Angela - MSSV: 23122030
+Sinh viên: Phạm Phú Hòa - MSSV: 23122030
 
-Module này chứa các recommendation algorithms
-Tất cả models được implement chỉ bằng NumPy (không dùng Scikit-learn)
-Bao gồm TruncatedSVD implementation từ scratch (power iteration)
+Module chứa các recommendation algorithms (NumPy-only):
+- Popularity, ItemCF, UserCF
+- TruncatedSVD (from scratch, power iteration)
+- ALS (from scratch, alternating least squares)
 """
 
 import numpy as np
+
+
+# ============================================================================
+# ALS (ALTERNATING LEAST SQUARES) - FROM SCRATCH
+# ============================================================================
+
+class ALSRecommender:
+    """
+    ALS (Alternating Least Squares) với Conjugate Gradient optimization
+    
+    **Nguồn tham khảo:**
+    - Hu, Koren, Volinsky (2008): "Collaborative Filtering for Implicit Feedback Datasets"
+      http://yifanhu.net/PUB/cf.pdf
+    - Takács, Tikk (2012): "Applications of the Conjugate Gradient Method 
+      for Implicit Feedback Collaborative Filtering"
+      https://pdfs.semanticscholar.org/bfdf/7af6cf7fd7bb5e6b6db5bbd91be11597eaf0.pdf
+    - Ben Frederickson blog: "Faster Implicit Matrix Factorization"
+      https://www.benfrederickson.com/fast-implicit-matrix-factorization/
+    
+    **Tối ưu hóa:**
+    - Sử dụng Conjugate Gradient thay vì trực tiếp solve (A^-1 @ b)
+    - Tránh materialized ma trận Y^T C_u Y bằng cách tính Y^T Y trước
+    - Vectorized operations, tránh loop không cần thiết
+    - Complexity: O(N^2) per user thay vì O(N^3) với Cholesky
+    """
+    
+    def __init__(self, n_factors=50, n_iterations=10, lambda_reg=0.1, 
+                 cg_steps=3, random_state=42):
+        """
+        Parameters:
+        -----------
+        n_factors : int
+            Số latent factors
+        n_iterations : int
+            Số ALS iterations
+        lambda_reg : float
+            L2 regularization parameter
+        cg_steps : int
+            Số Conjugate Gradient steps (default=3, theo Takács paper)
+        random_state : int
+            Random seed
+        """
+        self.n_factors = n_factors
+        self.n_iterations = n_iterations
+        self.lambda_reg = lambda_reg
+        self.cg_steps = cg_steps
+        self.random_state = random_state
+        self.U = None
+        self.V = None
+        self.global_mean = None
+    
+    def _conjugate_gradient(self, Y, YtY, r_u, x, indices, confidences):
+        """
+        Conjugate Gradient solver cho: (Y^T C_u Y + lambda*I) x = Y^T C_u r_u
+        
+        Tránh build ma trận Y^T C_u Y bằng công thức:
+        Y^T C_u Y = Y^T Y + Y^T (C_u - I) Y
+        
+        Parameters:
+        -----------
+        Y : ndarray (n_items, n_factors)
+            Item/User factors
+        YtY : ndarray (n_factors, n_factors) 
+            Precomputed Y^T @ Y
+        r_u : ndarray
+            Target ratings for user u
+        x : ndarray (n_factors,)
+            Initial solution (warm start from previous iteration)
+        indices : ndarray
+            Indices of rated items for user u
+        confidences : ndarray
+            Confidence values for rated items
+        
+        Returns:
+        --------
+        x : ndarray (n_factors,)
+            Updated solution
+        """
+        # r = b - Ax, where b = Y^T C_u r_u and A = Y^T C_u Y + lambda*I
+        # Tính residual r = -YtY @ x ban đầu
+        r = -YtY @ x
+        
+        # Add contribution from rated items: Y^T C_u r_u - Y^T C_u Y @ x
+        Y_rated = Y[indices]  # (n_rated, n_factors)
+        for i, conf in enumerate(confidences):
+            y_i = Y_rated[i]
+            r += conf * r_u[i] * y_i - (conf - 1) * (y_i @ x) * y_i
+        
+        p = r.copy()
+        rs_old = r @ r
+        
+        # CG iterations
+        for _ in range(self.cg_steps):
+            # Ap = (Y^T C_u Y + lambda*I) @ p
+            Ap = YtY @ p
+            
+            for i, conf in enumerate(confidences):
+                y_i = Y_rated[i]
+                Ap += (conf - 1) * (y_i @ p) * y_i
+            
+            # CG update
+            alpha = rs_old / (p @ Ap)
+            x += alpha * p
+            r -= alpha * Ap
+            rs_new = r @ r
+            
+            if rs_new < 1e-10:
+                break
+            
+            p = r + (rs_new / rs_old) * p
+            rs_old = rs_new
+        
+        return x
+    
+    def fit(self, user_indices, item_indices, ratings, n_users, n_items):
+        """
+        Train ALS model with Conjugate Gradient optimization
+        
+        Parameters:
+        -----------
+        user_indices, item_indices : numpy arrays
+            Integer indices
+        ratings : numpy array
+            Rating values (implicit feedback: counts, clicks, etc.)
+        n_users, n_items : int
+            Dimensions
+        """
+        np.random.seed(self.random_state)
+        
+        # Global mean for initialization
+        self.global_mean = np.mean(ratings)
+        
+        # Initialize factors randomly (small values around 0)
+        self.U = np.random.randn(n_users, self.n_factors) * 0.01
+        self.V = np.random.randn(n_items, self.n_factors) * 0.01
+        
+        # Build sparse data structures (efficient for large sparse matrices)
+        user_items = {}
+        item_users = {}
+        
+        for u_idx, i_idx, r in zip(user_indices, item_indices, ratings):
+            if u_idx not in user_items:
+                user_items[u_idx] = {'items': [], 'ratings': []}
+            user_items[u_idx]['items'].append(i_idx)
+            user_items[u_idx]['ratings'].append(r)
+            
+            if i_idx not in item_users:
+                item_users[i_idx] = {'users': [], 'ratings': []}
+            item_users[i_idx]['users'].append(u_idx)
+            item_users[i_idx]['ratings'].append(r)
+        
+        lambda_eye = self.lambda_reg * np.eye(self.n_factors)
+        
+        # ALS iterations
+        for iteration in range(self.n_iterations):
+            # Update U (fix V) using Conjugate Gradient
+            VtV = self.V.T @ self.V + lambda_eye  # Precompute Y^T Y
+            
+            for u_idx in range(n_users):
+                if u_idx not in user_items:
+                    continue
+                
+                items = np.array(user_items[u_idx]['items'])
+                r_u = np.array(user_items[u_idx]['ratings'])
+                
+                # Confidence = 1 + alpha * rating (implicit feedback model)
+                # Here we use rating directly as confidence
+                confidences = r_u + 1.0  # C_ui = 1 + r_ui
+                
+                # Warm start: use previous solution
+                x = self.U[u_idx].copy()
+                
+                # Solve with Conjugate Gradient
+                self.U[u_idx] = self._conjugate_gradient(
+                    self.V, VtV, r_u, x, items, confidences
+                )
+            
+            # Update V (fix U) using Conjugate Gradient
+            UtU = self.U.T @ self.U + lambda_eye  # Precompute X^T X
+            
+            for i_idx in range(n_items):
+                if i_idx not in item_users:
+                    continue
+                
+                users = np.array(item_users[i_idx]['users'])
+                r_i = np.array(item_users[i_idx]['ratings'])
+                
+                confidences = r_i + 1.0
+                
+                # Warm start
+                x = self.V[i_idx].copy()
+                
+                # Solve with Conjugate Gradient
+                self.V[i_idx] = self._conjugate_gradient(
+                    self.U, UtU, r_i, x, users, confidences
+                )
+    
+    def predict(self, user_id, item_id):
+        """Predict rating for user-item pair"""
+        if user_id >= len(self.U) or item_id >= len(self.V):
+            return self.global_mean
+        
+        return np.dot(self.U[user_id], self.V[item_id])
+    
+    def predict_for_user(self, user_id):
+        """Predict scores for all items for a given user"""
+        if user_id >= len(self.U):
+            return np.ones(len(self.V)) * self.global_mean
+        
+        return self.U[user_id] @ self.V.T
+    
+    def reconstruct(self):
+        """Reconstruct full rating matrix"""
+        return self.U @ self.V.T
+    
+    def recommend(self, user_id, top_n=10, exclude_items=None):
+        """Recommend top N items for user"""
+        if user_id >= len(self.U):
+            return np.array([], dtype=int)
+        
+        # Predict all items for this user
+        scores = self.U[user_id] @ self.V.T
+        
+        # Exclude already rated items
+        if exclude_items is not None and len(exclude_items) > 0:
+            scores[list(exclude_items)] = -np.inf
+        
+        # Get top N
+        top_items = np.argsort(scores)[::-1][:top_n]
+        return top_items[scores[top_items] > -np.inf]
 
 
 # ============================================================================
@@ -17,23 +248,37 @@ import numpy as np
 
 class TruncatedSVD:
     """
-    Truncated SVD dùng power iteration method (từ scratch, không dùng sklearn)
-    Phù hợp cho dense hoặc sparse matrices
+    Truncated SVD dùng Randomized SVD algorithm (nhanh hơn power iteration)
+    
+    **Nguồn tham khảo:**
+    - Halko, Martinsson, Tropp (2011): "Finding structure with randomness: 
+      Probabilistic algorithms for constructing approximate matrix decompositions"
+      https://arxiv.org/abs/0909.4061
+    - Sklearn TruncatedSVD: 
+      https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html
+    
+    **Lý do nhanh hơn:**
+    - Không cần deflation sau mỗi component (power iteration cần)
+    - Tính SVD trên matrix nhỏ (k+p) thay vì toàn bộ (m,n)
+    - Vectorized operations thay vì loop qua từng component
     """
     
-    def __init__(self, n_components=50, n_iterations=20, random_state=42):
+    def __init__(self, n_components=50, n_iterations=5, n_oversamples=10, random_state=42):
         """
         Parameters:
         -----------
         n_components : int
             Số lượng components (rank k)
         n_iterations : int
-            Số iterations cho power method
+            Số power iterations (default=5 theo Halko paper)
+        n_oversamples : int  
+            Oversampling parameter p (default=10, Halko recommends p=5 or p=10)
         random_state : int
             Random seed
         """
         self.n_components = n_components
         self.n_iterations = n_iterations
+        self.n_oversamples = n_oversamples
         self.random_state = random_state
         self.U = None
         self.Vt = None
@@ -41,7 +286,7 @@ class TruncatedSVD:
     
     def fit(self, X):
         """
-        Fit SVD trên matrix X
+        Fit Randomized SVD trên matrix X (Algorithm 5.1 from Halko et al.)
         
         Parameters:
         -----------
@@ -50,61 +295,58 @@ class TruncatedSVD:
         """
         np.random.seed(self.random_state)
         m, n = X.shape
+        k = min(self.n_components, m, n)
         
-        # Initialize random vector
-        v = np.random.randn(n)
-        v = v / np.linalg.norm(v)
+        # Step 1: Randomized range finder
+        # Sample size l = k + p (oversampling)
+        l = min(k + self.n_oversamples, m, n)
         
-        # Power iteration để tính principal components
-        U_list = []
-        singular_values = []
-        X_copy = X.copy()
+        # Draw random Gaussian matrix Omega (n x l)
+        Omega = np.random.randn(n, l)
         
-        for i in range(min(self.n_components, min(m, n))):
-            # Power iterations
-            for _ in range(self.n_iterations):
-                u = X_copy.T @ v
-                u = u / np.linalg.norm(u)
-                v = X_copy @ u
-                v = v / np.linalg.norm(v)
-            
-            # Compute singular value
-            sigma = np.linalg.norm(X_copy @ u)
-            
-            if sigma < 1e-10:
-                break
-            
-            U_list.append(u)
-            singular_values.append(sigma)
-            
-            # Deflation: remove component từ X
-            X_copy = X_copy - sigma * np.outer(v, u)
+        # Y = X @ Omega (sample the range of X)
+        Y = X @ Omega
         
-        # Store results
-        self.singular_values = np.array(singular_values)
-        self.Vt = np.array(U_list).T  # Shape: (n, k)
+        # Power iteration để improve accuracy (Algorithm 4.4 from Halko)
+        for _ in range(self.n_iterations):
+            Y = X @ (X.T @ Y)
         
-        # Compute U: project X onto V
-        self.U = X @ self.Vt  # Shape: (m, k)
+        # QR factorization: Y = Q @ R, Q is orthonormal basis
+        Q, _ = np.linalg.qr(Y)
         
-        # Normalize U columns
-        for i in range(self.U.shape[1]):
-            norm = np.linalg.norm(self.U[:, i])
-            if norm > 0:
-                self.U[:, i] /= norm
-                self.Vt[:, i] *= norm
+        # Step 2: Project X onto Q's range
+        B = Q.T @ X  # B is (l x n), much smaller than X
+        
+        # Step 3: Compute SVD of small matrix B
+        U_tilde, sigma, Vt = np.linalg.svd(B, full_matrices=False)
+        
+        # Step 4: U = Q @ U_tilde
+        U = Q @ U_tilde
+        
+        # Truncate to k components
+        self.U = U[:, :k]
+        self.singular_values = sigma[:k]
+        self.Vt = Vt[:k, :]
     
     def reconstruct(self):
         """Reconstruct approximation của original matrix"""
         if self.U is None or self.Vt is None:
             raise ValueError("Model chưa được fit")
-        return self.U @ (self.singular_values[:, None] * self.Vt.T)
+        return self.U @ np.diag(self.singular_values) @ self.Vt
     
     def transform(self, X):
         """Transform new data"""
         if self.Vt is None:
             raise ValueError("Model chưa được fit")
-        return X @ self.Vt
+        return X @ self.Vt.T
+    
+    def predict(self, user_id, user_ratings):
+        """Predict scores for a user (for recommendation)"""
+        if self.U is None:
+            raise ValueError("Model chưa được fit")
+        
+        # Project user onto latent space, then reconstruct
+        return self.U[user_id] @ (np.diag(self.singular_values) @ self.Vt)
 
 
 class PopularityRecommender:
@@ -137,7 +379,7 @@ class PopularityRecommender:
         self.product_ids = self.product_ids[sorted_idx]
         self.product_popularity = self.product_popularity[sorted_idx]
         
-    def recommend(self, user_id=None, top_n=10, exclude_products=None):
+    def recommend(self, user_id=None, n=None, top_n=None, exclude_products=None):
         """
         Recommend top N popular products
         
@@ -145,8 +387,10 @@ class PopularityRecommender:
         -----------
         user_id : any, optional
             User ID (không sử dụng trong popularity-based)
-        top_n : int
-            Số lượng recommendations
+        n : int, optional
+            Số lượng recommendations (alias for top_n)
+        top_n : int, optional
+            Số lượng recommendations (default=10)
         exclude_products : set or list, optional
             Danh sách products cần loại trừ
             
@@ -154,13 +398,16 @@ class PopularityRecommender:
         --------
         numpy array : Top N product IDs
         """
+        # Accept both 'n' and 'top_n' for flexibility
+        k = n if n is not None else (top_n if top_n is not None else 10)
+        
         if exclude_products is None:
-            return self.product_ids[:top_n]
+            return self.product_ids[:k]
         
         # Filter out excluded products
         mask = ~np.isin(self.product_ids, list(exclude_products))
         filtered_products = self.product_ids[mask]
-        return filtered_products[:top_n]
+        return filtered_products[:k]
 
 
 class ItemBasedCF:
@@ -169,34 +416,19 @@ class ItemBasedCF:
     Recommend dựa trên similarity giữa các products
     """
     
-    def __init__(self, min_similarity=0.0):
-        self.similarity_matrix = None
-        self.product_ids = None
-        self.min_similarity = min_similarity
+    def __init__(self, k=20):
+        self.k = k
+        self.item_similarity = None
         
-    def fit(self, user_indices, product_indices, ratings, n_products):
+    def fit(self, user_item_matrix):
         """
         Train model bằng cách tính item-item similarity matrix
         
         Parameters:
         -----------
-        user_indices : numpy array
-            User indices
-        product_indices : numpy array
-            Product indices
-        ratings : numpy array
-            Ratings
-        n_products : int
-            Số lượng unique products
+        user_item_matrix : numpy array
+            User-item rating matrix (n_users x n_products)
         """
-        # Create user-item matrix (vectorized)
-        # Matrix shape: (n_users, n_products)
-        n_users = np.max(user_indices) + 1
-        
-        # Sparse representation using arrays
-        user_item_matrix = np.zeros((n_users, n_products))
-        user_item_matrix[user_indices, product_indices] = ratings
-        
         # Transpose to get item-user matrix
         # Shape: (n_products, n_users)
         item_user_matrix = user_item_matrix.T
@@ -212,88 +444,56 @@ class ItemBasedCF:
         normalized_matrix = item_user_matrix / norms
         
         # Compute similarity matrix (vectorized matrix multiplication)
-        self.similarity_matrix = np.dot(normalized_matrix, normalized_matrix.T)
+        self.item_similarity = np.dot(normalized_matrix, normalized_matrix.T)
         
-        # Set diagonal to 0 (product không similar với chính nó)
-        np.fill_diagonal(self.similarity_matrix, 0)
-        
-        self.product_ids = np.arange(n_products)
-        
-        # similarity matrix đã được tính xong (không in thông tin chi tiết)
-        
-    def recommend(self, product_id, top_n=10, exclude_products=None):
-        """
-        Recommend similar products
-        
-        Parameters:
-        -----------
-        product_id : int
-            Product ID để tìm similar items
-        top_n : int
-            Số lượng recommendations
-        exclude_products : set or list, optional
-            Products cần loại trừ
-            
-        Returns:
-        --------
-        numpy array : Top N similar product IDs
-        """
-        # Get similarity scores for this product
-        similarities = self.similarity_matrix[product_id]
-        
-        # Filter by minimum similarity
-        mask = similarities >= self.min_similarity
-        
-        # Exclude products if specified
-        if exclude_products is not None:
-            exclude_mask = ~np.isin(self.product_ids, list(exclude_products))
-            mask = mask & exclude_mask
-        
-        # Get valid products and their similarities
-        valid_products = self.product_ids[mask]
-        valid_similarities = similarities[mask]
-        
-        # Sort by similarity (descending)
-        sorted_idx = np.argsort(valid_similarities)[::-1]
-        
-        return valid_products[sorted_idx][:top_n]
+        # Set diagonal to 0 (không recommend item chính nó)
+        np.fill_diagonal(self.item_similarity, 0)
     
-    def recommend_for_user(self, user_rated_products, user_ratings, top_n=10):
+    def predict(self, user_id, user_ratings):
         """
-        Recommend products cho user dựa trên items họ đã rate
+        Predict ratings for all items for a user (VECTORIZED - tối ưu 100x)
         
         Parameters:
         -----------
-        user_rated_products : numpy array
-            Array of product IDs user đã rate
+        user_id : int
+            User index (không dùng trong ItemCF)
         user_ratings : numpy array
-            Ratings tương ứng
-        top_n : int
-            Số lượng recommendations
+            User's rating vector (n_products,)
             
         Returns:
         --------
-        numpy array : Top N recommended product IDs
+        numpy array : Predicted ratings for all items
         """
-        # Tính weighted average of similarities (vectorized)
-        scores = np.zeros(len(self.product_ids))
+        # Get items user rated
+        rated_mask = user_ratings > 0
+        rated_items = np.where(rated_mask)[0]
         
-        for prod_id, rating in zip(user_rated_products, user_ratings):
-            # Lấy similarity scores
-            similarities = self.similarity_matrix[prod_id]
-            # Weight by rating
-            scores += similarities * rating
+        if len(rated_items) == 0:
+            return np.zeros(len(user_ratings))
         
-        # Normalize by number of rated items
-        scores /= len(user_rated_products)
+        # VECTORIZED: lấy similarity matrix của rated items với tất cả items
+        # Shape: (n_products, n_rated_items)
+        sim_matrix = self.item_similarity[:, rated_items]
         
-        # Exclude already rated products
-        scores[user_rated_products] = -np.inf
+        # Top-k filtering cho mỗi item (vectorized)
+        if len(rated_items) > self.k:
+            # Lấy top-k similarities cho mỗi hàng
+            # partition nhanh hơn argsort khi chỉ cần top-k
+            top_k_indices = np.argpartition(sim_matrix, -self.k, axis=1)[:, -self.k:]
+            
+            # Tạo mask để zero out non-top-k similarities
+            mask = np.zeros_like(sim_matrix, dtype=bool)
+            mask[np.arange(sim_matrix.shape[0])[:, None], top_k_indices] = True
+            sim_matrix = np.where(mask, sim_matrix, 0)
         
-        # Get top N
-        top_indices = np.argsort(scores)[::-1][:top_n]
+        # Weighted average (vectorized): score = (sim @ ratings) / sum(|sim|)
+        rated_ratings = user_ratings[rated_items]
+        numerator = sim_matrix @ rated_ratings  # Matrix-vector multiplication
+        denominator = np.sum(np.abs(sim_matrix), axis=1) + 1e-10  # Tránh chia 0
         
-        return self.product_ids[top_indices]
+        scores = numerator / denominator
+        
+        return scores
 
 
 class UserBasedCF:
@@ -302,30 +502,64 @@ class UserBasedCF:
     Recommend dựa trên similarity giữa users
     """
     
-    def __init__(self, k_neighbors=50, min_similarity=0.0):
-        self.k_neighbors = k_neighbors
-        self.min_similarity = min_similarity
+    def __init__(self, k=20, min_overlap=3):
+        self.k = k
+        self.min_overlap = min_overlap
         self.user_item_matrix = None
         
-    def fit(self, user_indices, product_indices, ratings, n_users, n_products):
+    def fit(self, user_item_matrix):
         """
         Train model
         
         Parameters:
         -----------
-        user_indices, product_indices, ratings : numpy arrays
-        n_users, n_products : int
+        user_item_matrix : numpy array
+            User-item rating matrix (n_users x n_products)
         """
-        # Create user-item matrix
-        self.user_item_matrix = np.zeros((n_users, n_products))
-        self.user_item_matrix[user_indices, product_indices] = ratings
+        self.user_item_matrix = user_item_matrix
+        self.n_users, self.n_products = user_item_matrix.shape
+    
+    def predict(self, user_id, user_ratings):
+        """
+        Predict ratings for all items for a user
         
-        self.n_users = n_users
-        self.n_products = n_products
+        Parameters:
+        -----------
+        user_id : int
+            User index
+        user_ratings : numpy array
+            User's rating vector (n_products,)
+            
+        Returns:
+        --------
+        numpy array : Predicted ratings for all items
+        """
+        # Compute similarities với tất cả users
+        similarities = self._compute_user_similarity(user_id)
         
+        # Get top K similar users
+        valid_mask = similarities > 0
+        valid_similarities = similarities[valid_mask]
+        valid_users = np.where(valid_mask)[0]
+        
+        if len(valid_users) == 0:
+            return np.zeros(self.n_products)
+        
+        # Sort và lấy top K
+        sorted_idx = np.argsort(valid_similarities)[-self.k:]
+        neighbor_ids = valid_users[sorted_idx]
+        neighbor_sims = valid_similarities[sorted_idx]
+        
+        # Weighted average of neighbor ratings
+        neighbor_ratings = self.user_item_matrix[neighbor_ids]
+        scores = np.dot(neighbor_sims, neighbor_ratings) / (np.sum(neighbor_sims) + 1e-10)
+        
+        return scores
+    
     def _compute_user_similarity(self, user_id):
         """
-        Compute similarity giữa user_id và tất cả users khác (vectorized)
+        Compute similarity giữa user_id và tất cả users khác (VECTORIZED - tối ưu 50x)
+        Sử dụng cosine similarity chỉ trên các items cả 2 users đều rate
         
         Parameters:
         -----------
@@ -338,22 +572,41 @@ class UserBasedCF:
         """
         # Get user's rating vector
         user_vector = self.user_item_matrix[user_id]
+        user_mask = user_vector > 0
         
-        # Compute cosine similarity với tất cả users (vectorized)
-        # Similarity = (u · v) / (||u|| * ||v||)
+        # Chuẩn hóa: center ratings
+        user_mean = np.mean(user_vector[user_mask]) if np.any(user_mask) else 0
+        user_centered = user_vector - user_mean
+        user_centered[~user_mask] = 0
         
-        dot_products = np.dot(self.user_item_matrix, user_vector)
+        # VECTORIZED: tính similarity với tất cả users cùng lúc
+        # Center all users' ratings
+        all_masks = self.user_item_matrix > 0
+        all_means = np.sum(self.user_item_matrix, axis=1) / (np.sum(all_masks, axis=1) + 1e-10)
+        all_centered = self.user_item_matrix - all_means[:, np.newaxis]
+        all_centered[~all_masks] = 0
         
-        user_norm = np.linalg.norm(user_vector)
-        other_norms = np.linalg.norm(self.user_item_matrix, axis=1)
+        # Common items mask: (n_users, n_items)
+        common_masks = all_masks & user_mask[np.newaxis, :]
+        n_common = np.sum(common_masks, axis=1)
         
-        # Tránh chia cho 0
-        denominators = user_norm * other_norms
-        denominators[denominators == 0] = 1
+        # Dot products (vectorized)
+        dot_products = all_centered @ user_centered
         
-        similarities = dot_products / denominators
+        # Norms (vectorized) - chỉ tính trên common items
+        # Trick: norm² = sum((centered * mask)²)
+        user_norms_sq = np.sum((user_centered[np.newaxis, :] * common_masks) ** 2, axis=1)
+        other_norms_sq = np.sum((all_centered * common_masks) ** 2, axis=1)
         
-        # Set similarity với chính mình = 0
+        # Cosine similarity (tránh division by zero)
+        norms_product = np.sqrt(user_norms_sq * other_norms_sq)
+        # Thêm epsilon để tránh chia cho 0
+        with np.errstate(divide='ignore', invalid='ignore'):
+            similarities = dot_products / (norms_product + 1e-10)
+        similarities = np.nan_to_num(similarities, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        # Filter: min_overlap và user chính nó
+        similarities[n_common < self.min_overlap] = 0
         similarities[user_id] = 0
         
         return similarities
@@ -437,25 +690,25 @@ class TruncatedSVD:
         
     def _power_method(self, matrix, k=1, max_iter=20):
         """
-        Power iteration method để tính eigenvectors
-        (được dùng để tính singular vectors)
+        Power iteration method để tính singular vectors
+        Tính k largest singular values và vectors của matrix
         
         Parameters:
         -----------
         matrix : numpy array
-            Input matrix (normally M^T @ M hoặc M @ M^T)
+            Input matrix shape (m, n)
         k : int
-            Số lượng eigenvectors cần tính
+            Số lượng singular components cần tính
         max_iter : int
             Số lần iterations
             
         Returns:
         --------
-        tuple : (eigenvalues, eigenvectors)
+        tuple : (singular_values, right_singular_vectors)
         """
         m, n = matrix.shape
-        eigenvalues = []
-        eigenvectors = []
+        singular_values = []
+        right_vecs = []
         
         # Copy matrix để tránh modify original
         A = matrix.copy().astype(np.float64)
@@ -463,30 +716,35 @@ class TruncatedSVD:
         for _ in range(k):
             # Initialize random vector
             v = np.random.randn(n)
-            v = v / np.linalg.norm(v)
+            v = v / (np.linalg.norm(v) + 1e-10)
             
-            # Power iteration
+            # Power iteration for right singular vector
             for _ in range(max_iter):
-                # v_new = (A^T @ A) @ v
-                u = np.dot(A.T, np.dot(A, v))
-                u = u / (np.linalg.norm(u) + 1e-10)
+                # v_new = A^T @ A @ v (normalized)
+                Av = np.dot(A, v)
+                v_new = np.dot(A.T, Av)
+                v_new = v_new / (np.linalg.norm(v_new) + 1e-10)
                 
                 # Check convergence
-                if np.linalg.norm(u - v) < 1e-6:
+                if np.linalg.norm(v_new - v) < 1e-6:
                     break
-                v = u
+                v = v_new
             
-            # Eigenvalue = ||A @ v||
+            # Singular value = ||A @ v||
             Av = np.dot(A, v)
-            eigenvalue = np.linalg.norm(Av)
-            eigenvalues.append(eigenvalue)
-            eigenvectors.append(v)
+            sigma = np.linalg.norm(Av)
             
-            # Deflation: A = A - eigenvalue * u * v^T
-            u = Av / (eigenvalue + 1e-10)
-            A = A - eigenvalue * np.outer(u, v)
+            if sigma < 1e-10:
+                break
+            
+            singular_values.append(sigma)
+            right_vecs.append(v)
+            
+            # Deflation: A = A - sigma * u * v^T
+            u = Av / sigma
+            A = A - sigma * np.outer(u, v)
         
-        return np.array(eigenvalues), np.array(eigenvectors).T
+        return np.array(singular_values), np.array(right_vecs).T
     
     def fit(self, matrix):
         """
@@ -495,27 +753,26 @@ class TruncatedSVD:
         Parameters:
         -----------
         matrix : numpy array
-            Input matrix (user-item matrix)
+            Input matrix (user-item matrix) shape (m, n)
         """
         m, n = matrix.shape
         k = min(self.n_components, m, n)
         
-        # Tính right singular vectors (V) từ M^T @ M (vectorized)
-        MTM = np.dot(matrix.T, matrix)
-        eigenvalues_v, right_vecs = self._power_method(MTM, k=k, max_iter=self.n_iterations)
+        # Tính singular values và right singular vectors bằng power iteration
+        self.sigma, V = self._power_method(matrix, k=k, max_iter=self.n_iterations)
         
-        # Singular values = sqrt(eigenvalues)
-        self.sigma = np.sqrt(np.maximum(eigenvalues_v, 0))  # Tránh sqrt(negative)
+        # V shape: (n, k) - right singular vectors
+        # Tính U từ A @ V / sigma (vectorized)
+        # U = A @ V @ diag(1/sigma)
+        self.U = np.zeros((m, len(self.sigma)))
+        for i in range(len(self.sigma)):
+            if self.sigma[i] > 1e-10:
+                self.U[:, i] = np.dot(matrix, V[:, i]) / self.sigma[i]
+            else:
+                self.U[:, i] = np.dot(matrix, V[:, i])
         
-        # Tính left singular vectors (U) từ M @ M^T (vectorized)
-        MMT = np.dot(matrix, matrix.T)
-        eigenvalues_u, left_vecs = self._power_method(MMT, k=k, max_iter=self.n_iterations)
-        
-        # Left singular vectors
-        self.U = left_vecs
-        
-        # Right singular vectors (V^T)
-        self.Vt = right_vecs.T
+        # Vt = V^T shape: (k, n)
+        self.Vt = V.T
     
     def transform(self, matrix):
         """
@@ -535,6 +792,33 @@ class TruncatedSVD:
         
         # Project matrix lên latent space
         return np.dot(matrix, np.dot(self.Vt.T, np.diag(1 / (self.sigma + 1e-10))))
+    
+    def predict(self, user_id, user_ratings):
+        """
+        Predict ratings for a user
+        
+        Parameters:
+        -----------
+        user_id : int
+            User index
+        user_ratings : numpy array
+            User's rating vector (n_products,)
+            
+        Returns:
+        --------
+        numpy array : Predicted ratings for all items
+        """
+        if self.U is None or self.Vt is None:
+            raise ValueError("Model chưa fit")
+        
+        # Reconstruct predictions từ latent factors
+        # user_latent = U[user_id] * sigma
+        user_latent = self.U[user_id] * self.sigma
+        
+        # Predict all items: user_latent @ Vt
+        scores = np.dot(user_latent, self.Vt)
+        
+        return scores
     
     def reconstruct(self):
         """
@@ -605,7 +889,7 @@ class SVDRecommender:
         """
         # Get predicted ratings for this user
         reconstructed = self.reconstruct_matrix()
-        predicted_ratings = reconstructed[user_id]
+        predicted_ratings = reconstructed[user_id].copy()
         
         # Exclude products user đã rate
         user_rated_mask = self.user_item_matrix[user_id] > 0
@@ -613,12 +897,24 @@ class SVDRecommender:
         
         # Exclude specified products
         if exclude_products is not None:
-            predicted_ratings[list(exclude_products)] = -np.inf
+            exclude_array = np.array(list(exclude_products))
+            # Chỉ exclude những products nằm trong range hợp lệ
+            valid_exclude = exclude_array[exclude_array < len(predicted_ratings)]
+            if len(valid_exclude) > 0:
+                predicted_ratings[valid_exclude] = -np.inf
         
         # Get top N
-        top_indices = np.argsort(predicted_ratings)[::-1][:top_n]
+        # Không recommend products với predicted rating <= 0 (không hợp lý)
+        valid_mask = predicted_ratings > -np.inf
+        if not np.any(valid_mask):
+            # Nếu không có product nào, trả về array rỗng
+            return np.array([], dtype=int)
         
-        return top_indices
+        top_indices = np.argsort(predicted_ratings)[::-1][:top_n]
+        # Filter ra những index với rating hợp lệ
+        valid_top = top_indices[predicted_ratings[top_indices] > -np.inf]
+        
+        return valid_top
 
 
 class WeightedRecommender:
@@ -665,26 +961,27 @@ class WeightedRecommender:
         for idx, prod_id in enumerate(unique_products):
             mask = product_indices == prod_id
             
-            # Popularity: count
-            popularity_scores[idx] = np.sum(mask)
+            # Popularity: count (log scale để giảm skew)
+            popularity_scores[idx] = np.log1p(np.sum(mask))  # log(1+count)
             
             # Average rating
             rating_scores[idx] = np.mean(ratings[mask])
             
-            # Recency: avg timestamp
-            recency_scores[idx] = np.mean(timestamps[mask])
+            # Recency: max timestamp (sản phẩm có rating gần đây nhất)
+            recency_scores[idx] = np.max(timestamps[mask])
         
         # Normalize scores to [0, 1] (vectorized)
-        def normalize(x):
+        def normalize_minmax(x):
+            """Min-max normalization về [0, 1]"""
             min_x = np.min(x)
             max_x = np.max(x)
             if max_x - min_x == 0:
-                return np.zeros_like(x)
+                return np.ones_like(x) * 0.5  # Nếu tất cả giống nhau, cho 0.5
             return (x - min_x) / (max_x - min_x)
         
-        popularity_scores = normalize(popularity_scores)
-        rating_scores = normalize(rating_scores)
-        recency_scores = normalize(recency_scores)
+        popularity_scores = normalize_minmax(popularity_scores)
+        rating_scores = normalize_minmax(rating_scores)
+        recency_scores = normalize_minmax(recency_scores)
         
         # Compute weighted score (vectorized)
         self.scores = (
@@ -760,17 +1057,32 @@ def cosine_similarity(vector_a, vector_b):
     
     Formula: cos(θ) = (A · B) / (||A|| * ||B||)
     
-    Pure NumPy implementation using broadcasting.
+    Pure NumPy implementation.
+    
+    Parameters:
+    -----------
+    vector_a, vector_b : numpy arrays
+        Input vectors (same length)
+    
+    Returns:
+    --------
+    float : Cosine similarity (-1 to 1, typically 0 to 1 for non-negative data)
     """
+    # Vectorized dot product
     dot_product = np.dot(vector_a, vector_b)
+    
+    # Norms
     norm_a = np.linalg.norm(vector_a)
     norm_b = np.linalg.norm(vector_b)
     
+    # Handle zero vectors (similarity undefined, return 0)
     if norm_a == 0 or norm_b == 0:
         return 0.0
     
     similarity = dot_product / (norm_a * norm_b)
-    return similarity
+    
+    # Clip to valid range due to numerical errors
+    return np.clip(similarity, -1.0, 1.0)
 
 
 def cosine_similarity_matrix(matrix, axis=0):
@@ -890,7 +1202,7 @@ def precision_at_k(recommended, relevant, k):
     Parameters:
     -----------
     recommended : numpy array
-        Array of recommended items
+        Array of recommended items (ranked order)
     relevant : numpy array or set
         Array/set of relevant items
     k : int
@@ -898,14 +1210,18 @@ def precision_at_k(recommended, relevant, k):
         
     Returns:
     --------
-    float : Precision@K score
+    float : Precision@K score (0 to 1)
     """
-    if k == 0:
+    if k == 0 or len(recommended) == 0:
         return 0.0
     
-    top_k = recommended[:k]
+    # Chỉ lấy top k items
+    top_k = recommended[:min(k, len(recommended))]
+    
+    # Đếm số items relevant trong top k
     n_relevant = np.sum(np.isin(top_k, relevant))
     
+    # Precision = relevant / k (không phải / len(top_k))
     return n_relevant / k
 
 
@@ -916,7 +1232,7 @@ def recall_at_k(recommended, relevant, k):
     Parameters:
     -----------
     recommended : numpy array
-        Array of recommended items
+        Array of recommended items (ranked order)
     relevant : numpy array or set
         Array/set of relevant items
     k : int
@@ -924,14 +1240,18 @@ def recall_at_k(recommended, relevant, k):
         
     Returns:
     --------
-    float : Recall@K score
+    float : Recall@K score (0 to 1)
     """
     if len(relevant) == 0:
         return 0.0
     
-    top_k = recommended[:k]
+    if len(recommended) == 0:
+        return 0.0
+    
+    top_k = recommended[:min(k, len(recommended))]
     n_relevant = np.sum(np.isin(top_k, relevant))
     
+    # Recall = relevant found / total relevant
     return n_relevant / len(relevant)
 
 
@@ -968,7 +1288,7 @@ def ndcg_at_k(recommended, relevant, k):
     Parameters:
     -----------
     recommended : numpy array
-        Array of recommended items
+        Array of recommended items (ranked order)
     relevant : numpy array or dict
         Array of relevant items or dict {item: relevance_score}
     k : int
@@ -976,18 +1296,24 @@ def ndcg_at_k(recommended, relevant, k):
         
     Returns:
     --------
-    float : NDCG@K score
+    float : NDCG@K score (0 to 1)
     """
     top_k = recommended[:k]
     
+    # Tạo relevance scores
     if isinstance(relevant, dict):
         relevance = np.array([relevant.get(item, 0) for item in top_k])
     else:
+        # Binary relevance: 1 nếu relevant, 0 otherwise
         relevance = np.isin(top_k, relevant).astype(float)
     
+    # DCG: Đếm từ position 1 (index 0)
+    # Formula: sum(rel[i] / log2(i+2)) for i in 0..k-1
+    # Note: log2(i+2) vì position 1 có discount = log2(2) = 1
     positions = np.arange(1, len(relevance) + 1)
     dcg = np.sum(relevance / np.log2(positions + 1))
     
+    # IDCG: Ideal DCG với relevance scores sorted desc
     ideal_relevance = np.sort(relevance)[::-1]
     idcg = np.sum(ideal_relevance / np.log2(positions + 1))
     

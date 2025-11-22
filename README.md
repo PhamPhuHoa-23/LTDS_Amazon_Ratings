@@ -1,230 +1,267 @@
-# Lab2DS — Hệ Khuyến Nghị Amazon Beauty (NumPy-first)
+# Lab2DS — Amazon Beauty Recommendation System
 
-Repository này triển khai pipeline đơn giản để xử lý dữ liệu ratings và xây dựng các recommender cơ bản cho bộ dữ liệu Amazon Beauty.
+**NumPy-first recommendation system** implementing multiple algorithms from scratch for CSC17104 - Programming for Data Science.
 
-**Tóm tắt nhanh:**
-- **Kiến trúc**: Notebooks (01→02→03) + mô-đun trong `src/` (NumPy-first)
-- **Mục tiêu**: Khám phá → Tiền xử lý → Feature engineering → Xây dựng recommenders (Popularity, CF, SVD)
-- **Lưu trữ**: Artifacts lưu trong `data/processed/` (`.npz` compressed)
-- **Conventions**: In tiếng Việt, ngắn gọn; không dùng ký tự trang trí
+**Overview:**
+- **Architecture**: 3 Notebooks (exploration → preprocessing → modeling) + reusable `src/` modules
+- **Dataset**: Amazon Beauty ratings (2.02M ratings, 1.21M users, 249K products)
+- **Models**: Popularity, ItemCF, UserCF, SVD (from scratch), ALS (from scratch)
+- **Constraints**: NumPy-only (no pandas/sklearn for core processing)
+- **Storage**: Compressed `.npz` files in `data/processed/`
 
 ---
 
-## Dữ Liệu
+## Dataset
 
-**Nguồn:** Amazon Beauty Ratings từ Kaggle  
-**Thời gian:** 2002-06-12 đến 2014-07-23 (12.1 năm)
+**Source:** Amazon Beauty Ratings (Kaggle)  
+**Timeframe:** 2010-05-19 to 2014-07-07 (4.1 years)
 
-### Thống Kê Chi Tiết
+### Statistics
 
-#### Dữ liệu thô (Raw)
-| Metric | Giá trị |
-|--------|--------|
+#### Raw Data
+| Metric | Value |
+|--------|-------|
 | **Total ratings** | 2,023,070 |
 | **Unique users** | 1,210,271 |
 | **Unique products** | 249,274 |
-| **Avg rating** | 4.15 / 5.0 |
+| **Mean rating** | 4.149 / 5.0 |
 | **Median rating** | 5.0 |
 | **Distribution** | 1★: 9.1%, 2★: 5.6%, 3★: 8.4%, 4★: 15.2%, 5★: 61.7% |
 
-#### Sau Preprocessing (Min 5 ratings/user và /product)
-| Metric | Giá trị |
-|--------|--------|
-| **Final records** | 198,837 |
-| **Final users** | 22,408 |
-| **Final products** | 12,140 |
-| **Sparsity** | 99.9269% |
-| **Avg ratings/user** | 8.87 |
-| **Avg ratings/product** | 16.38 |
+#### After Preprocessing (min 5 ratings per user/product)
+| Metric | Value |
+|--------|-------|
+| **Records** | ~199K |
+| **Users** | ~22K |
+| **Products** | ~12K |
+| **Sparsity** | ~99.93% |
 
 ---
 
-## Quy Trình Pipeline
+## Workflow
 
-Chạy **theo thứ tự**: 01 → 02 → 03. Mỗi notebook lưu dữ liệu cho notebook tiếp theo.
+Run notebooks **in order**: 01 → 02 → 03. Each saves outputs for the next.
 
-### 1. `01_data_exploration.ipynb` — Khám Phá Dữ Liệu
+### 1. `01_data_exploration.ipynb` — Data Exploration
 
-**Mục tiêu:** Load, validate, thống kê, khám phá phân bố ratings.
+**Goal:** Understand dataset characteristics and identify patterns.
+
+**Research Questions:**
+- How are ratings distributed? (Bias check)
+- What is user engagement pattern?
+- What is product popularity distribution?
+- Are there temporal trends?
+- How sparse is the user-item matrix?
 
 **Outputs:**
-- `data/processed/exploration_outputs.npz`:
-  - `ratings`, `timestamps`, `user_ids`, `product_ids`
-  - `unique_users`, `unique_products`
-  - `user_counts`, `product_counts`
+- `data/processed/exploration_outputs.npz` (summary statistics)
 
-**Thời gian chạy:** ~1 phút
+**Runtime:** ~1 minute
 
 ---
 
-### 2. `02_preprocessing.ipynb` — Tiền Xử Lý & Feature Engineering
+### 2. `02_preprocessing.ipynb` — Data Preprocessing
 
-**Mục tiêu:** Xử lý missing values → Outlier detection → Feature engineering → Normalization → Filtering.
+**Goal:** Prepare clean data for modeling.
 
-**Các bước:**
-1. **Missing Values**: Kiểm tra NaN, invalid timestamps
-2. **Outlier Detection**: Validate rating [1, 5], timestamp hợp lệ
-3. **Feature Engineering** (23 features):
-   - User features: `n_ratings`, `mean_rating`, `std_rating`
-   - Product features: `n_ratings`, `mean_rating`, `std_rating`
-   - Temporal: `year`, `month`, `weekday`, `days_since`, `recency_weight`
-   - Interaction: `user_rating_deviation`, `product_rating_deviation`, `global_rating_deviation`, `user_rating_zscore`
-   - Normalized: Min-Max, Z-score, Robust scaling
-4. **Data Filtering**: Iterative filtering (min 5 ratings/user, min 5 ratings/product) → converged sau 4 iterations
-5. **ID Mapping**: String IDs → Integer indices
+**Steps:**
+1. Load raw data
+2. Filter users/products (min 5 ratings each)
+3. Create index mappings (string ID → integer index)
+4. Temporal train/test split (80/20)
+5. Compute user/product statistics
 
 **Outputs:**
-- `data/processed/preprocessed_data.npz` (all features + indices)
-- `data/processed/id_mappings.npz` (user/product mappings)
-- `data/processed/metadata.npy` (sparsity, global mean rating)
+- `data/processed/preprocessed_data.npz` (train/test splits)
+- `data/processed/id_mappings.npz` (ID mappings)
+- `data/processed/user_stats.npy`, `product_stats.npy`
 
-**Thời gian chạy:** ~5 phút
+**Runtime:** ~2 minutes
 
 ---
 
-### 3. `03_modeling.ipynb` — Xây Dựng & Đánh Giá Models
+### 3. `03_modeling.ipynb` — Model Training & Evaluation
 
-**Mục tiêu:** Train recommenders → Evaluate → So sánh.
+**Goal:** Train and compare recommendation models.
 
 **Models:**
-- **Popularity-based** — Top-N by rating count
-- **Item-based CF** — k=10, 20, 50 (cosine similarity)
-- **User-based CF** — k=10, 20, 50 (cosine similarity)
-- **SVD (TruncatedSVD)** — k=20, 50, 100
-- **Weighted Hybrid** — Kết hợp signals
+1. **Popularity** — Recommend most popular items
+2. **ItemCF** — Item-based collaborative filtering (k=20)
+3. **UserCF** — User-based collaborative filtering (k=20, min_overlap=3)
+4. **SVD** — Truncated SVD from scratch (50 factors)
+5. **ALS** — Alternating Least Squares from scratch (50 factors)
 
 **Metrics:**
-- Precision@10, Recall@10, Hit Rate@10, F1 Score
-- Coverage, Diversity, Training time
-
-**Comparison Results (sklearn):**
-
-| Model | Precision | Recall | Hit Rate | F1 | Coverage | Diversity | Train (s) |
-|-------|-----------|--------|----------|-----|----------|-----------|-----------|
-| Popularity | 0.0040 | 0.0400 | 0.0400 | 0.0073 | 0.0008 | 0.0100 | 0.01 |
-| ItemCF_k10 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0602 | 0.7310 | 15.35 |
-| ItemCF_k20 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0602 | 0.7310 | 15.97 |
-| ItemCF_k50 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0602 | 0.7310 | 18.04 |
-| UserCF_k10 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0675 | 0.8280 | 0.10 |
-| UserCF_k20 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0647 | 0.7860 | 0.10 |
-| UserCF_k50 | 0.0100 | 0.1000 | 0.1000 | 0.0182 | 0.0567 | 0.6880 | 0.10 |
-| SVD_k20 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0152 | 0.1850 | 0.26 |
-| SVD_k50 | 0.0090 | 0.0900 | 0.0900 | 0.0164 | 0.0245 | 0.2970 | 0.20 |
-| SVD_k100 | 0.0080 | 0.0800 | 0.0800 | 0.0145 | 0.0325 | 0.3950 | 0.31 |
-
-**Kết luận:**
-- **UserCF_k50** có metrics tốt nhất (Recall=0.10, Diversity=0.69)
-- **ItemCF** có coverage cao (0.73) nhưng training chậm (~18s)
-- **SVD** nhanh nhất nhưng coverage thấp
+- Precision@10, Recall@10, F1@10
+- NDCG@10 (ranking quality)
+- Coverage (% unique items recommended)
+- Diversity (avg dissimilarity)
 
 **Outputs:**
-- `results/comparison_sklearn.png` — Biểu đồ so sánh
+- `results/model_recommendations.npz` (evaluation results)
 
-**Thời gian chạy:** ~1-2 phút
+**Runtime:** ~3-5 minutes (depends on ALS iterations)
 
 ---
 
-## Cài Đặt & Chạy
+## Installation & Usage
 
-### Yêu cầu
+### Requirements
 
 - Python 3.8+
-- NumPy, Matplotlib, Seaborn, scikit-learn
+- NumPy, Matplotlib, Seaborn
 
 ### Setup
 
 ```bash
-# Clone repo
+# Navigate to project
 cd Lab2DS
 
-# Cài dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# Đặt dữ liệu
-# Tải ratings_Beauty.csv từ Kaggle → data/raw/
+# Place dataset
+# Download ratings_Beauty.csv from Kaggle → data/raw/
 ```
 
-### Chạy Notebooks
+### Run Notebooks
 
 ```bash
-# Mở VS Code Notebook hoặc Jupyter
+# Open in VS Code or Jupyter
 jupyter notebook notebooks/
 
-# Chạy theo thứ tự: 01 → 02 → 03
-# Mỗi notebook tải output từ notebook trước
+# Run in order: 01 → 02 → 03
 ```
 
-### Chạy Scripts (Kiểm tra nhanh)
+### Quick Tests
 
 ```bash
-# Kiểm tra models
+# Test models
 python src/models.py
 
-# Kiểm tra visualization
+# Test visualization
 python src/visualization.py
+
+# Test ALS implementation
+python test_als.py
 ```
 
 ---
 
-## Cấu Trúc Thư Mục
+## Project Structure
 
 ```
 Lab2DS/
 ├── data/
 │   ├── raw/
-│   │   └── ratings_Beauty.csv        # CSV thô
+│   │   └── ratings_Beauty.csv
 │   └── processed/
-│       ├── exploration_outputs.npz    # From notebook 01
-│       ├── preprocessed_data.npz      # From notebook 02
+│       ├── exploration_outputs.npz
+│       ├── preprocessed_data.npz
 │       ├── id_mappings.npz
-│       └── metadata.npy
+│       └── *.npy (user_stats, product_stats)
 ├── notebooks/
 │   ├── 01_data_exploration.ipynb
 │   ├── 02_preprocessing.ipynb
 │   └── 03_modeling.ipynb
 ├── src/
 │   ├── __init__.py
-│   ├── data_processing.py             # Utility functions (vectorized)
-│   ├── models.py                      # Recommenders (NumPy)
-│   └── visualization.py               # Plot helpers
+│   ├── data_processing.py      # Data loading, filtering, feature engineering
+│   ├── models.py                # Recommendation algorithms (NumPy-only)
+│   └── visualization.py         # Plotting utilities
 ├── results/
-│   └── comparison_sklearn.png         # Generated by notebook 03
+│   └── model_recommendations.npz
 ├── .github/
-│   └── copilot-instructions.md        # AI agent guidelines
+│   └── copilot-instructions.md  # AI agent guidelines
 ├── requirements.txt
+├── test_als.py
 └── README.md
 ```
 
 ---
 
+## Implementation Details
+
+### Models (Pure NumPy)
+
+**TruncatedSVD:**
+- Power iteration method to compute singular vectors
+- No sklearn dependency
+- Returns U @ Sigma @ V.T factorization
+
+**ALSRecommender:**
+- Alternating Least Squares matrix factorization
+- Solves least squares with L2 regularization
+- Alternates between updating user and item factors
+
+**UserBasedCF:**
+- Centered cosine similarity (rating mean subtraction)
+- Filters neighbors by minimum overlap count
+- Aggregates neighbor ratings with similarity weights
+
+**ItemBasedCF:**
+- Cosine similarity between item rating vectors
+- k-nearest neighbors for prediction
+- Fast prediction using precomputed similarity matrix
+
+### Data Processing
+
+**Filtering:**
+- Iterative removal of users/products below min rating threshold
+- Converges when no more users/products are removed
+- Ensures data density for meaningful recommendations
+
+**Train/Test Split:**
+- Temporal split: 80% earliest ratings → train, 20% latest → test
+- Preserves temporal order (no future data leakage)
+- Uses timestamps for splitting
+
+
+---
+
 ## Coding Conventions
 
-- **NumPy-first**: Vectorized operations; tránh Pandas/SciPy trừ khi cần
-- **Prints**: Ngắn gọn, Tiếng Việt ở notebooks; **KHÔNG** ký tự trang trí (===, ✓)
-- **Comments**: Tiếng Việt ngắn; giữ English technical terms (SVD, CF, cosine)
-- **Persistence**: Lưu `.npz` vào `data/processed/`
-- **Notebooks**: Idempotent, top-to-bottom runnable, tái sử dụng outputs
+- **NumPy-first**: Vectorized operations; avoid pandas/scipy for core processing
+- **Prints**: Concise, Vietnamese in notebooks; NO decorative characters (===, checkmarks)
+- **Comments**: Short Vietnamese; keep English technical terms (SVD, CF, cosine)
+- **Persistence**: Save `.npz` to `data/processed/`
+- **Notebooks**: Idempotent, top-to-bottom runnable, reuse outputs
 
 ---
 
 ## Challenges & Solutions
 
-
-
-| Vấn đề | Giải pháp |
-|-------|----------|
-| Raw data lớn (2M+ rows) | Vectorized NumPy operations (không loop) |
-| Dữ liệu very sparse (99.93%) | Filtering iterative, collaborative filtering |
-| Feature engineering phức tạp | Modular functions trong `src/` |
-| Notebook reusability | Lưu `.npz` vào `data/processed/` |
-| Metrics tính toán | Tính kỹ: Precision, Recall, F1, Coverage, Diversity |
+| Challenge | Solution |
+|-----------|----------|
+| Large raw data (2M+ rows) | Vectorized NumPy operations (no loops) |
+| Extreme sparsity (99.93%) | Iterative filtering, matrix factorization |
+| Cold-start users/items | Popularity baseline, hybrid approaches |
+| Metric computation | Careful implementation: Precision, Recall, NDCG |
+| Notebook reusability | Save artifacts to `data/processed/` |
 
 ---
 
-## Tương Lai
+## Future Work
 
-- [ ] Thêm Neural Collaborative Filtering (NCF)
-- [ ] Hyperparameter tuning (Grid Search)
+- [ ] Hyperparameter tuning (grid search)
+- [ ] Cross-validation for robust evaluation
+- [ ] Ensemble methods (hybrid models)
+- [ ] Neural Collaborative Filtering (NCF)
+- [ ] Online learning for real-time updates
+
+---
+
+## References
+
+- **Dataset:** [Amazon Beauty Ratings](https://www.kaggle.com/datasets/skillsmuggler/amazon-ratings) (Kaggle)
+- **Course:** CSC17104 - Programming for Data Science (HCMUS)
+- **Student:** Angela - MSSV: 23122030
+
+---
+
+## License
+
+Educational project for CSC17104. Dataset credit to Amazon and Kaggle contributors.
 - [ ] A/B testing framework
 - [ ] FastAPI server
 - [ ] Docker containerization

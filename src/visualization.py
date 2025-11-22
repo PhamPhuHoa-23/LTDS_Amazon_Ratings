@@ -1,11 +1,10 @@
 """
-Visualization Module (Consolidated with OOP Visualizer class)
+Visualization Module
 CSC17104 - Programming for Data Science
-Student: Angela - MSSV: 23122030
+Sinh viên: Phạm Phú Hòa - MSSV: 23122030
 
-Module này chứa các functions để visualize dữ liệu và kết quả
-Tất cả functions sử dụng Matplotlib và Seaborn
-Cũng bao gồm Visualizer class cho OOP-style usage
+Module chứa functions để visualize dữ liệu và kết quả models.
+Sử dụng Matplotlib và Seaborn.
 """
 
 import numpy as np
