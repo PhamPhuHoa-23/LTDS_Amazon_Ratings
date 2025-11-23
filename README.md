@@ -1,284 +1,620 @@
-# Lab2DS — Amazon Beauty Recommendation System
+# Hệ Thống Gợi Ý Sản Phẩm Amazon Beauty
 
-**NumPy-first recommendation system** implementing multiple algorithms from scratch for CSC17104 - Programming for Data Science.
+**Đồ án môn:** CSC17104 - Lập Trình Cho Khoa Học Dữ Liệu  
+**Sinh viên:** Phạm Phú Hòa  
+**MSSV:** 23122030  
+**Năm học:** 2025-2026
 
-**Overview:**
-- **Architecture**: 3 Notebooks (exploration → preprocessing → modeling) + reusable `src/` modules
-- **Dataset**: Amazon Beauty ratings (2.02M ratings, 1.21M users, 249K products)
-- **Models**: Popularity, ItemCF, UserCF, SVD (from scratch), ALS (from scratch)
-- **Constraints**: NumPy-only (no pandas/sklearn for core processing)
-- **Storage**: Compressed `.npz` files in `data/processed/`
+---
+
+## Mục Lục
+
+1. [Giới Thiệu](#giới-thiệu)
+2. [Dataset](#dataset)
+3. [Cấu Trúc Dự Án](#cấu-trúc-dự-án)
+4. [Cài Đặt](#cài-đặt)
+5. [Hướng Dẫn Sử Dụng](#hướng-dẫn-sử-dụng)
+6. [Chi Tiết Notebooks](#chi-tiết-notebooks)
+7. [Kết Quả](#kết-quả)
+8. [Tham Khảo](#tham-khảo)
+9. [License](#license)
+
+---
+
+## Giới Thiệu
+
+Dự án này xây dựng một **hệ thống gợi ý sản phẩm** (Recommendation System) hoàn chỉnh cho lĩnh vực mỹ phẩm (Beauty) trên nền tảng Amazon, sử dụng dữ liệu đánh giá (ratings) thực tế.
+
+### Đặc Điểm Chính
+
+- **Pure NumPy Implementation**: Toàn bộ thuật toán được cài đặt từ đầu bằng NumPy, không sử dụng thư viện ML/DS như pandas, scikit-learn
+- **4 Thuật Toán**: So sánh hiệu năng của Popularity, ItemCF, SVD, và ALS
+- **Quy Trình Hoàn Chỉnh**: Từ phân tích dữ liệu $\rightarrow$ tiền xử lý $\rightarrow$ xây dựng model $\rightarrow$ đánh giá
+- **Tối Ưu Hóa**: Sử dụng vectorization và compressed storage (`.npz`) để xử lý hiệu quả
 
 ---
 
 ## Dataset
 
-**Source:** Amazon Beauty Ratings (Kaggle)  
-**Timeframe:** 2010-05-19 to 2014-07-07 (4.1 years)
+### Nguồn Dữ Liệu
 
-### Statistics
+**Dataset:** Amazon Beauty Ratings  
+**Nguồn:** [Amazon Product Data (Kaggle)](https://www.kaggle.com/)  
+**File:** `ratings_Beauty.csv`  
+**Khoảng thời gian:** 1998-10-19 đến 2014-07-23 (15.8 năm)
 
-#### Raw Data
-| Metric | Value |
-|--------|-------|
-| **Total ratings** | 2,023,070 |
-| **Unique users** | 1,210,271 |
-| **Unique products** | 249,274 |
-| **Mean rating** | 4.149 / 5.0 |
-| **Median rating** | 5.0 |
-| **Distribution** | 1★: 9.1%, 2★: 5.6%, 3★: 8.4%, 4★: 15.2%, 5★: 61.7% |
+### Thống Kê Dữ Liệu Gốc
 
-#### After Preprocessing (min 5 ratings per user/product)
-| Metric | Value |
-|--------|-------|
-| **Records** | ~199K |
-| **Users** | ~22K |
-| **Products** | ~12K |
-| **Sparsity** | ~99.93% |
+| Chỉ Số | Giá Trị |
+|---------|---------|
+| Tổng số ratings | 2,023,070 |
+| Số lượng users | 1,210,271 |
+| Số lượng products | 249,274 |
+| Rating trung bình | 4.149 / 5.0 |
+| Rating median | 5.0 |
+| Độ lệch chuẩn | 1.312 |
 
----
+### Phân Bố Ratings
 
-## Workflow
+| Rating | Số Lượng | Tỷ Lệ |
+|--------|----------|-------|
+| 1 sao | 183,784 | 9.1% |
+| 2 sao | 113,034 | 5.6% |
+| 3 sao | 169,791 | 8.4% |
+| 4 sao | 307,740 | 15.2% |
+| 5 sao | 1,248,721 | **61.7%** |
 
-Run notebooks **in order**: 01 → 02 → 03. Each saves outputs for the next.
+**Nhận xét:** Dữ liệu có xu hướng nghiêng về ratings cao (positive bias), với hơn 61\% là 5 sao.
 
-### 1. `01_data_exploration.ipynb` — Data Exploration
+### Dữ Liệu Sau Tiền Xử Lý
 
-**Goal:** Understand dataset characteristics and identify patterns.
+Sau khi lọc (chỉ giữ users và products có ít nhất 5 ratings):
 
-**Research Questions:**
-- How are ratings distributed? (Bias check)
-- What is user engagement pattern?
-- What is product popularity distribution?
-- Are there temporal trends?
-- How sparse is the user-item matrix?
-
-**Outputs:**
-- `data/processed/exploration_outputs.npz` (summary statistics)
-
-**Runtime:** ~1 minute
+| Chỉ Số | Giá Trị | Tỷ Lệ Giữ Lại |
+|---------|---------|----------------|
+| Users | 22,480 | 1.9% |
+| Products | 12,153 | 4.9% |
+| Ratings | 199,177 | 9.8% |
+| Sparsity | 99.94% | - |
 
 ---
 
-### 2. `02_preprocessing.ipynb` — Data Preprocessing
-
-**Goal:** Prepare clean data for modeling.
-
-**Steps:**
-1. Load raw data
-2. Filter users/products (min 5 ratings each)
-3. Create index mappings (string ID → integer index)
-4. Temporal train/test split (80/20)
-5. Compute user/product statistics
-
-**Outputs:**
-- `data/processed/preprocessed_data.npz` (train/test splits)
-- `data/processed/id_mappings.npz` (ID mappings)
-- `data/processed/user_stats.npy`, `product_stats.npy`
-
-**Runtime:** ~2 minutes
-
----
-
-### 3. `03_modeling.ipynb` — Model Training & Evaluation
-
-**Goal:** Train and compare recommendation models.
-
-**Models:**
-1. **Popularity** — Recommend most popular items
-2. **ItemCF** — Item-based collaborative filtering (k=20)
-3. **UserCF** — User-based collaborative filtering (k=20, min_overlap=3)
-4. **SVD** — Truncated SVD from scratch (50 factors)
-5. **ALS** — Alternating Least Squares from scratch (50 factors)
-
-**Metrics:**
-- Precision@10, Recall@10, F1@10
-- NDCG@10 (ranking quality)
-- Coverage (% unique items recommended)
-- Diversity (avg dissimilarity)
-
-**Outputs:**
-- `results/model_recommendations.npz` (evaluation results)
-
-**Runtime:** ~3-5 minutes (depends on ALS iterations)
-
----
-
-## Installation & Usage
-
-### Requirements
-
-- Python 3.8+
-- NumPy, Matplotlib, Seaborn
-
-### Setup
-
-```bash
-# Navigate to project
-cd Lab2DS
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Place dataset
-# Download ratings_Beauty.csv from Kaggle → data/raw/
-```
-
-### Run Notebooks
-
-```bash
-# Open in VS Code or Jupyter
-jupyter notebook notebooks/
-
-# Run in order: 01 → 02 → 03
-```
-
-### Quick Tests
-
-```bash
-# Test models
-python src/models.py
-
-# Test visualization
-python src/visualization.py
-
-# Test ALS implementation
-python test_als.py
-```
-
----
-
-## Project Structure
+## Cấu Trúc Dự Án
 
 ```
 Lab2DS/
 ├── data/
 │   ├── raw/
-│   │   └── ratings_Beauty.csv
-│   └── processed/
-│       ├── exploration_outputs.npz
-│       ├── preprocessed_data.npz
-│       ├── id_mappings.npz
-│       └── *.npy (user_stats, product_stats)
+│   │   └── ratings_Beauty.csv          # Dataset gốc (download từ Kaggle)
+│   └── processed/                       # Dữ liệu đã xử lý (tự động tạo)
+│       ├── exploration_outputs.npz      # Kết quả EDA
+│       ├── preprocessed_data.npz        # Train/test splits
+│       ├── id_mappings.npz              # User/product ID mappings
+│       ├── user_stats.npy               # Thống kê users
+│       └── product_stats.npy            # Thống kê products
+│
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_preprocessing.ipynb
-│   └── 03_modeling.ipynb
-├── src/
+│   ├── 01_data_exploration.ipynb       # Phân tích dữ liệu
+│   ├── 02_preprocessing.ipynb          # Tiền xử lý
+│   └── 03_modeling.ipynb               # Xây dựng & đánh giá models
+│
+├── src/                                 # Module Python tái sử dụng
 │   ├── __init__.py
-│   ├── data_processing.py      # Data loading, filtering, feature engineering
-│   ├── models.py                # Recommendation algorithms (NumPy-only)
-│   └── visualization.py         # Plotting utilities
+│   ├── data_processing.py              # Load, filter, feature engineering
+│   ├── models.py                        # Các thuật toán recommendation
+│   ├── evaluation.py                    # Metrics đánh giá
+│   └── visualization.py                 # Vẽ biểu đồ
+│
 ├── results/
-│   └── model_recommendations.npz
-├── .github/
-│   └── copilot-instructions.md  # AI agent guidelines
-├── requirements.txt
-├── test_als.py
+│   └── model_recommendations.npz        # Kết quả đánh giá models
+│
+├── requirements.txt                     # Dependencies
 └── README.md
 ```
 
 ---
 
-## Implementation Details
+## Cài Đặt
 
-### Models (Pure NumPy)
+### Yêu Cầu Hệ Thống
 
-**TruncatedSVD:**
-- Power iteration method to compute singular vectors
-- No sklearn dependency
-- Returns U @ Sigma @ V.T factorization
+- **Python:** 3.8 trở lên
+- **Thư viện:** NumPy, Matplotlib, Seaborn
+- **RAM:** Tối thiểu 4GB (khuyến nghị 8GB)
+- **Dung lượng:** ~500MB (bao gồm dataset)
 
-**ALSRecommender:**
-- Alternating Least Squares matrix factorization
-- Solves least squares with L2 regularization
-- Alternates between updating user and item factors
+### Các Bước Cài Đặt
 
-**UserBasedCF:**
-- Centered cosine similarity (rating mean subtraction)
-- Filters neighbors by minimum overlap count
-- Aggregates neighbor ratings with similarity weights
+**Bước 1:** Clone repository
 
-**ItemBasedCF:**
-- Cosine similarity between item rating vectors
-- k-nearest neighbors for prediction
-- Fast prediction using precomputed similarity matrix
+```bash
+git clone https://github.com/PhamPhuHoa-23/LTDS_Amazon_Ratings.git
+cd LTDS_Amazon_Ratings
+```
 
-### Data Processing
+**Bước 2:** Cài đặt dependencies
 
-**Filtering:**
-- Iterative removal of users/products below min rating threshold
-- Converges when no more users/products are removed
-- Ensures data density for meaningful recommendations
+```bash
+pip install -r requirements.txt
+```
 
-**Train/Test Split:**
-- Temporal split: 80% earliest ratings → train, 20% latest → test
-- Preserves temporal order (no future data leakage)
-- Uses timestamps for splitting
+**Bước 3:** Tải dataset
 
+1. Tải file `ratings_Beauty.csv` từ [Kaggle](https://www.kaggle.com/)
+2. Đặt file vào thư mục `data/raw/`:
+   ```
+   data/
+   └── raw/
+       └── ratings_Beauty.csv
+   ```
 
----
+**Bước 4:** Kiểm tra cài đặt
 
-## Coding Conventions
-
-- **NumPy-first**: Vectorized operations; avoid pandas/scipy for core processing
-- **Prints**: Concise, Vietnamese in notebooks; NO decorative characters (===, checkmarks)
-- **Comments**: Short Vietnamese; keep English technical terms (SVD, CF, cosine)
-- **Persistence**: Save `.npz` to `data/processed/`
-- **Notebooks**: Idempotent, top-to-bottom runnable, reuse outputs
+```bash
+# Test các module
+python src/models.py
+```
 
 ---
 
-## Challenges & Solutions
+## Hướng Dẫn Sử Dụng
 
-| Challenge | Solution |
-|-----------|----------|
-| Large raw data (2M+ rows) | Vectorized NumPy operations (no loops) |
-| Extreme sparsity (99.93%) | Iterative filtering, matrix factorization |
-| Cold-start users/items | Popularity baseline, hybrid approaches |
-| Metric computation | Careful implementation: Precision, Recall, NDCG |
-| Notebook reusability | Save artifacts to `data/processed/` |
+### Chạy Notebooks
+
+**Quan trọng:** Chạy notebooks theo **thứ tự** 01 $\rightarrow$ 02 $\rightarrow$ 03 vì mỗi notebook sử dụng output của notebook trước.
+
+```bash
+# Mở Jupyter Notebook hoặc VS Code
+jupyter notebook notebooks/
+
+# Hoặc sử dụng VS Code Notebook
+code notebooks/
+```
+
+**Thứ tự chạy:**
+1. `01_data_exploration.ipynb` - Phân tích dữ liệu (~1 phút)
+2. `02_preprocessing.ipynb` - Tiền xử lý (~1 phút)
+3. `03_modeling.ipynb` - Train & đánh giá models (~15 phút)
+
+### Chạy Module Độc Lập
+
+```bash
+# Test model implementations
+python src/models.py
+
+# Test visualization functions
+python src/visualization.py
+```
 
 ---
 
-## Future Work
+## Chi Tiết Notebooks
 
-- [ ] Hyperparameter tuning (grid search)
-- [ ] Cross-validation for robust evaluation
-- [ ] Ensemble methods (hybrid models)
-- [ ] Neural Collaborative Filtering (NCF)
-- [ ] Online learning for real-time updates
+### Notebook 01: Data Exploration (Khám Phá Dữ Liệu)
+
+**Mục đích:** Phân tích đặc điểm dữ liệu ratings (phân phối, sparsity, user/product patterns) để xác định chiến lược xây dựng hệ thống khuyến nghị.
+
+#### Các Câu Hỏi Nghiên Cứu
+
+**1. Phân tích phân phối ratings**
+- Phân bố ratings như thế nào?
+- Có bias không?
+- Rating trung bình và độ lệch chuẩn?
+
+**Kết quả:**
+- Trung bình: 4.149/5.0, độ lệch chuẩn: 1.312
+- Median: 5.0
+- Phân phối: 1 sao (9.1%), 2 sao (5.6%), 3 sao (8.4%), 4 sao (15.2%), **5 sao (61.7%)**
+- Kết luận: Ratings thiên về 5 sao ($>60\%$), cho thấy bias tích cực phổ biến trong e-commerce
+
+**2. Phân tích hoạt động users**
+- User trung bình đánh giá bao nhiêu sản phẩm?
+- Có "power users" không?
+- Phân bố hoạt động user như thế nào?
+
+**Kết quả:**
+- Tổng users: 1,210,271
+- Trung bình: 1.67 ratings/user, Median: 1 rating
+- Max ratings của 1 user: 389
+- Percentile 90%: 3 ratings, Percentile 95%: 5 ratings, Percentile 99%: 15 ratings
+- Power users ($\geq 10$ ratings): $\sim 1.0\%$
+- Casual users ($<5$ ratings): $\sim 95.7\%$
+- Kết luận: Phần lớn users có ít ratings, power users rất hiếm nhưng quan trọng cho hệ khuyến nghị
+
+**3. Phân tích độ phổ biến products**
+- Phân phối ratings cho products?
+- Có "blockbuster products" không?
+- Bao nhiêu products có ít ratings (cold start)?
+
+**Kết quả:**
+- Tổng products: 249,274
+- Trung bình: 8.11 ratings/product, Median: 2 ratings
+- Max ratings cho 1 product: 7,533
+- Products chỉ có 1 rating: 103,484 (41.5%)
+- Top 10 products được rate nhiều nhất có từ 3,000+ đến 7,533 ratings
+- Kết luận: Phân phối long-tail - nhiều products có ít ratings (cold start problem)
+
+**4. Phân tích xu hướng thời gian**
+- Có xu hướng tăng/giảm theo thời gian không?
+- Khoảng thời gian dữ liệu?
+- Hoạt động rating có biến động theo thời gian?
+
+**Kết quả:**
+- Khoảng thời gian: 1998-10-19 đến 2014-07-23 (15.8 năm)
+- Kết luận: Hoạt động rating tương đối ổn định theo thời gian
+
+**5. Phân tích sparsity**
+- Ma trận user-item có sparse như thế nào?
+- Mật độ dữ liệu thực tế?
+
+**Kết quả:**
+- Users: 1,210,271, Products: 249,274
+- Tổng khả thi: 301,751,932,054 interactions
+- Thực tế: 2,023,070 ratings
+- **Sparsity: 99.999329% (0.000671% density)**
+- Kết luận: Sparsity cực cao ($>99.9\%$) - cần matrix factorization (SVD, ALS), filtering users/products theo min ratings, chiến lược xử lý cold-start
+
+#### Output
+
+- File: `data/processed/exploration_outputs.npz`
+- Chứa: `n_users`, `n_products`, `n_ratings`, `sparsity`
 
 ---
 
-## References
+### Notebook 02: Preprocessing (Tiền Xử Lý)
 
-- **Dataset:** [Amazon Beauty Ratings](https://www.kaggle.com/datasets/skillsmuggler/amazon-ratings) (Kaggle)
-- **Course:** CSC17104 - Programming for Data Science (HCMUS)
-- **Student:** Angela - MSSV: 23122030
+**Mục đích:** Lọc dữ liệu (loại users/products có ít ratings), tạo index mappings, chia train/test theo thời gian, lưu artifacts cho modeling.
+
+#### Quy Trình Xử Lý
+
+**Bước 1: Load dữ liệu gốc**
+- Input: `data/raw/ratings_Beauty.csv`
+- Format: user_id, product_id, rating, timestamp
+- Dữ liệu gốc: 1,210,271 users, 249,274 products, 2,023,070 ratings
+
+**Bước 2: Lọc dữ liệu theo số ratings tối thiểu**
+
+**Tiêu chí lọc:**
+- Users: Giữ lại users có **ít nhất 5 ratings**
+- Products: Giữ lại products có **ít nhất 5 ratings**
+- Lọc lặp đi lặp lại cho đến khi không còn users/products nào bị loại
+
+**Lý do:**
+- Users $<5$ ratings: Không đủ để phân tích behavior pattern
+- Products $<5$ ratings: Cold start problem, ít tín hiệu để collaborative filtering
+
+**Kết quả sau lọc:**
+- Users: 22,480 (giữ lại 1.9%)
+- Products: 12,153 (giữ lại 4.9%)
+- Ratings: 199,177 (giữ lại 9.8%)
+
+**Bước 3: Tạo Index Mappings**
+
+Chuyển string IDs sang integer indices (0-based) cho NumPy arrays:
+- User IDs $\rightarrow$ User indices [0, 22,479]
+- Product IDs $\rightarrow$ Product indices [0, 12,152]
+
+Cơ chế:
+```python
+unique_users = np.unique(filtered_users)
+user_to_idx = {user_id: idx for idx, user_id in enumerate(unique_users)}
+user_indices = np.array([user_to_idx[u] for u in filtered_users])
+```
+
+Tương tự cho products.
+
+**Bước 4: Chia Train/Test**
+
+**Phương pháp:** Temporal split (chia theo thời gian)
+
+**Cơ chế:**
+```python
+# 1. Sort theo timestamp
+sorted_indices = np.argsort(timestamps)
+
+# 2. Tính split point
+split_idx = int(len(ratings) * 0.8)
+
+# 3. Chia
+train_indices = sorted_indices[:split_idx]
+test_indices = sorted_indices[split_idx:]
+```
+
+**Đặc điểm:**
+- Không random shuffle
+- Đảm bảo tính temporal consistency (test set chứa ratings mới hơn train set)
+- Mô phỏng real-world scenario (dự đoán tương lai từ quá khứ)
+- Tỷ lệ: 80% train, 20% test
+
+**Kết quả:**
+- Train: 159,342 ratings
+- Test: 39,835 ratings
+
+**Bước 5: Tính thống kê cho users và products**
+
+Tính các features:
+- Số ratings cho mỗi user/product
+- Average rating cho mỗi user/product
+- Rating variance
+
+**Bước 6: Xây dựng user-item matrix**
+
+Tạo dense matrix kích thước (n_users × n_products):
+```python
+train_matrix = np.zeros((n_users, n_products))
+for user, product, rating in zip(train_users, train_products, train_ratings):
+    train_matrix[user, product] = rating
+```
+
+Kết quả:
+- Shape: $(22{,}480 \times 12{,}153)$
+- Non-zero entries: 159,342
+- Sparsity: $99.94\%$
+
+#### Output Files
+
+| File | Nội Dung |
+|------|----------|
+| `preprocessed_data.npz` | `train_users`, `train_products`, `train_ratings`, `test_users`, `test_products`, `test_ratings`, `n_users`, `n_products` |
+| `id_mappings.npz` | `user_to_idx`, `idx_to_user`, `product_to_idx`, `idx_to_product` |
+| `user_stats.npy` | Thống kê users (avg rating, count, variance) |
+| `product_stats.npy` | Thống kê products (avg rating, count, variance) |
+
+---
+
+### Notebook 03: Modeling (Xây Dựng Models)
+
+**Mục đích:** Train 4 recommendation models (Popularity, ItemCF, SVD, ALS) và so sánh hiệu năng qua metrics (Precision, Recall, F1, NDCG, Coverage).
+
+#### Các Phương Pháp
+
+##### 1. Popularity Recommender
+
+**Cơ chế:**
+- Recommend các sản phẩm phổ biến nhất (nhiều ratings nhất)
+- Không cá nhân hóa (tất cả users nhận cùng recommendations)
+
+**Công thức:**
+```
+score(item) = count(ratings for item)
+```
+
+**Ưu điểm:**
+- Đơn giản, nhanh
+- Giải quyết cold start problem
+
+**Nhược điểm:**
+- Không cá nhân hóa
+- Coverage thấp (chỉ recommend popular items)
+
+**Training time:** ~0.03s
+
+---
+
+##### 2. ItemCF (Item-based Collaborative Filtering)
+
+**Cơ chế:**
+- "Users thích item A cũng thích item B"
+- Tính similarity giữa items dựa trên user ratings
+- Recommend items tương tự với items user đã thích
+
+**Công thức:**
+
+1. **Item similarity** (Cosine similarity):
+
+$$\text{sim}(i, j) = \frac{\mathbf{r}_i \cdot \mathbf{r}_j}{\|\mathbf{r}_i\| \times \|\mathbf{r}_j\|}$$
+
+Trong đó $\mathbf{r}_i$, $\mathbf{r}_j$ là rating vectors của item $i$ và $j$
+
+2. **Prediction score**:
+
+$$\text{score}(u, i) = \frac{\sum_{j \in N(i)} \text{sim}(i, j) \times r_{uj}}{\sum_{j \in N(i)} |\text{sim}(i, j)|}$$
+
+Với $j \in$ top-K similar items mà user $u$ đã rate
+
+**Tối ưu hóa:**
+- Pre-compute toàn bộ item-item similarity matrix khi training
+- Sử dụng vectorized matrix operations (NumPy)
+- Top-K filtering với `np.argpartition` (nhanh hơn full sort)
+
+**Tham số:**
+- k = 20 (số neighbors)
+
+**Ưu điểm:**
+- Coverage cao (recommend nhiều items khác nhau)
+- Stable (item similarity ít thay đổi)
+
+**Nhược điểm:**
+- Training chậm (tính similarity matrix)
+- Memory intensive (lưu n_items × n_items matrix)
+
+**Training time:** ~36.75s
+
+---
+
+##### 3. SVD (Singular Value Decomposition)
+
+**Cơ chế:**
+- Matrix factorization: phân rã user-item matrix thành 2 latent factor matrices
+- Giảm chiều dữ liệu (dimensionality reduction)
+
+**Công thức:**
+
+$$R \approx U \times \Sigma \times V^T$$
+
+Trong đó:
+- $R$: user-item matrix $(22{,}480 \times 12{,}153)$
+- $U$: user factors $(22{,}480 \times 50)$
+- $\Sigma$: singular values $(50)$
+- $V^T$: item factors $(50 \times 12{,}153)$
+
+**Implementation:**
+- Randomized SVD (Halko et al. 2011)
+- Power iteration để tính singular vectors
+- Không dùng sklearn (pure NumPy)
+
+**Tham số:**
+- n_components = 50 (latent factors)
+- n_iterations = 5 (power iterations)
+
+**Ưu điểm:**
+- Xử lý tốt sparsity
+- Tìm latent patterns
+
+**Nhược điểm:**
+- Training chậm
+- Overfitting risk
+
+**Training time:** ~221.09s
+
+---
+
+##### 4. ALS (Alternating Least Squares)
+
+**Cơ chế:**
+- Matrix factorization với implicit feedback
+- Xen kẽ optimize user factors và item factors
+
+**Công thức:**
+
+1. **Objective function**:
+
+$$\min_{U, V} \sum_{(u,i) \in \text{observed}} c_{ui}(r_{ui} - \mathbf{u}_u^T \mathbf{v}_i)^2 + \lambda(\|\mathbf{u}_u\|^2 + \|\mathbf{v}_i\|^2)$$
+
+2. **Update rules** (với Conjugate Gradient):
+
+$$\mathbf{u}_u = \arg\min_{\mathbf{u}_u} \sum_{i} c_{ui}(r_{ui} - \mathbf{u}_u^T \mathbf{v}_i)^2 + \lambda\|\mathbf{u}_u\|^2$$
+
+$$\mathbf{v}_i = \arg\min_{\mathbf{v}_i} \sum_{u} c_{ui}(r_{ui} - \mathbf{u}_u^T \mathbf{v}_i)^2 + \lambda\|\mathbf{v}_i\|^2$$
+
+**Tối ưu hóa:**
+- Conjugate Gradient thay vì Cholesky decomposition
+- Pre-compute $Y^T Y$ để tránh materialized large matrices
+- Complexity: $O(N^2)$ thay vì $O(N^3)$
+
+**Tham số:**
+- n_factors = 50
+- n_iterations = 10
+- lambda_reg = 0.01
+
+**Ưu điểm:**
+- Tốt cho implicit feedback
+- Scalable
+
+**Nhược điểm:**
+- Nhiều hyperparameters
+- Cần tune cẩn thận
+
+**Training time:** ~154.88s
+
+---
+
+#### Metrics Đánh Giá
+
+**Evaluation set:**
+- 15,422 test users có ít nhất 1 relevant item (rating $\geq$ 4)
+- $K = 10$ (Top-10 recommendations)
+
+**Metrics:**
+
+1. **Precision@K**: Tỷ lệ items được recommend là relevant
+
+$$\text{Precision@K} = \frac{|\text{Recommended} \cap \text{Relevant}|}{K}$$
+
+2. **Recall@K**: Tỷ lệ relevant items được recommend
+
+$$\text{Recall@K} = \frac{|\text{Recommended} \cap \text{Relevant}|}{|\text{Relevant}|}$$
+
+3. **F1@K**: Harmonic mean của Precision và Recall
+
+$$\text{F1@K} = \frac{2 \times \text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}$$
+
+4. **NDCG@K**: Normalized Discounted Cumulative Gain (xét thứ tự ranking)
+
+$$\text{NDCG@K} = \frac{\text{DCG@K}}{\text{IDCG@K}}$$
+
+$$\text{DCG@K} = \sum_{i=1}^{K} \frac{\text{rel}_i}{\log_2(i+1)}$$
+
+Trong đó $\text{rel}_i = 1$ nếu item thứ $i$ là relevant, $0$ nếu không.
+
+5. **Coverage**: Tỷ lệ unique items được recommend
+
+$$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|}$$
+
+---
+
+#### Kết Quả
+
+**Bảng tổng hợp:**
+
+| Model | Precision@10 | Recall@10 | F1@10 | NDCG@10 | Coverage | Eval Time |
+|-------|--------------|-----------|-------|---------|----------|-----------|
+| Popularity | 0.0524 | 0.0341 | 0.0411 | 0.0456 | 0.08% | ~3.2s |
+| ItemCF | 0.0891 | 0.0623 | 0.0734 | 0.0782 | 96.72% | ~142.5s |
+| SVD | 0.1247 | 0.0856 | 0.1012 | 0.1089 | 3.77% | ~58.3s |
+| **ALS** | **0.1384** | **0.1142** | **0.1253** | **0.1367** | 7.24% | ~51.2s |
+
+**Model tốt nhất theo từng metric:**
+
+| Metric | Model | Score |
+|--------|-------|-------|
+| Precision@10 | **ALS** | 0.1384 |
+| Recall@10 | **ALS** | 0.1142 |
+| F1@10 | **ALS** | 0.1253 |
+| NDCG@10 | **ALS** | 0.1367 |
+| Coverage | **ItemCF** | 0.9672 |
+
+**Phân tích:**
+
+---
+
+## Tham Khảo
+
+### Papers & Algorithms
+
+1. **ALS:**
+   - Hu, Koren, Volinsky (2008). "Collaborative Filtering for Implicit Feedback Datasets"
+   - Takács, Tikk (2012). "Applications of the Conjugate Gradient Method for Implicit Feedback Collaborative Filtering"
+
+2. **SVD:**
+   - Halko, Martinsson, Tropp (2011). "Finding structure with randomness: Probabilistic algorithms for constructing approximate matrix decompositions"
+
+3. **Collaborative Filtering:**
+   - Sarwar et al. (2001). "Item-based collaborative filtering recommendation algorithms"
+   - Koren, Bell, Volinsky (2009). "Matrix Factorization Techniques for Recommender Systems"
+
+### Datasets
+
+- Amazon Product Data: [Julian McAuley's website](http://jmcauley.ucsd.edu/data/amazon/)
+- Paper: "Image-based recommendations on styles and substitutes" (SIGIR 2015)
+
+### Tools & Libraries
+
+- NumPy Documentation: https://numpy.org/doc/
+- Matplotlib: https://matplotlib.org/
+- Seaborn: https://seaborn.pydata.org/
 
 ---
 
 ## License
 
-Educational project for CSC17104. Dataset credit to Amazon and Kaggle contributors.
-- [ ] A/B testing framework
-- [ ] FastAPI server
-- [ ] Docker containerization
+Dự án này được phát triển cho mục đích học tập tại **Trường Đại học Khoa học Tự nhiên - ĐHQG TP.HCM**.
+
+**Dataset License:** Amazon Product Data được sử dụng cho mục đích nghiên cứu và giáo dục.
 
 ---
 
-## Contributors
+## Tác Giả
 
-- **Angela** (MSSV: 23122030) — CSC17104 Programming for Data Science
-
----
-
-## License
-
-Educational project for CSC17104.
+**Phạm Phú Hòa**  
+MSSV: 23122030  
+Email: [email protected]  
+Trường: Đại học Khoa học Tự nhiên - ĐHQG TP.HCM
 
 ---
 
-**Last Updated:** 2025-11-17  
-**Status:** Notebooks 01-03 runnable; models evaluated✓
+## Lời Cảm Ơn
+
+- Giảng viên môn **CSC17104 - Lập Trình Cho Khoa Học Dữ Liệu**
+- Amazon & Prof. Julian McAuley (UCSD) đã cung cấp dataset
+- Cộng đồng NumPy & Python
