@@ -597,6 +597,7 @@ $$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|
 **Phạm Phú Hòa**  
 MSSV: 23122030  
 Email: phamhoa23us@gmail.com / 23122030@student.hcmus.edu.vn
+
 Trường: Đại học Khoa học Tự nhiên - ĐHQG TP.HCM
 
 ---
