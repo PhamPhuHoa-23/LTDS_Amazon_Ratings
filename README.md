@@ -547,46 +547,48 @@ $$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|
 
 **Bảng tổng hợp:**
 
-| Model | Precision@10 | Recall@10 | F1@10 | NDCG@10 | Coverage | Eval Time |
-|-------|--------------|-----------|-------|---------|----------|-----------|
-| Popularity | 0.0039 | 0.0210 | 0.0063 | 0.0124 | 0.08% | ~2.7s |
-| ItemCF | 0.0107 | 0.0388 | 0.0143 | 0.0282 | 96.72% | ~104.6s |
-| SVD | 0.0184 | 0.0514 | 0.0215 | 0.0375 | 3.77% | ~35.4s |
-| **ALS** | **0.0246** | **0.0745** | **0.0305** | **0.0543** | 7.24% | ~33.9s |
+| Model | Precision@10 | Recall@10 | F1@10 | NDCG@10 | Coverage | N_users |
+|-------|--------------|-----------|-------|---------|----------|---------|
+| Popularity | 0.0037 | 0.0210 | 0.0060 | 0.0123 | 0.08% | 15,422 |
+| ItemCF | 0.0091 | 0.0436 | 0.0140 | 0.0308 | 97.02% | 15,418 |
+| SVD | 0.0158 | 0.0634 | 0.0229 | 0.0439 | 4.67% | 15,418 |
+| **ALS** | **0.0200** | **0.0892** | **0.0299** | **0.0611** | 8.20% | 15,422 |
 
 **Model tốt nhất theo từng metric:**
 
 | Metric | Model | Score |
 |--------|-------|-------|
-| Precision@10 | **ALS** | 0.0246 |
-| Recall@10 | **ALS** | 0.0745 |
-| F1@10 | **ALS** | 0.0305 |
-| NDCG@10 | **ALS** | 0.0543 |
-| Coverage | **ItemCF** | 0.9672 |
+| Precision@10 | **ALS** | 0.0200 |
+| Recall@10 | **ALS** | 0.0892 |
+| F1@10 | **ALS** | 0.0299 |
+| NDCG@10 | **ALS** | 0.0611 |
+| Coverage | **ItemCF** | 0.9702 |
 
 **Phân tích:**
 
 **ALS - Overall Winner**
 - Thắng tuyệt đối về accuracy metrics (Precision, Recall, F1, NDCG)
-- Precision gấp 6.3x so với Popularity
-- Recall đạt 7.45% - cao nhất
-- NDCG cao nhất (0.0543) cho thấy ranking quality tốt nhất
-- Trade-off: Coverage thấp hơn ItemCF
+- Precision gấp 5.4x so với Popularity
+- Recall đạt 8.92% - cao nhất
+- NDCG cao nhất (0.0611) cho thấy ranking quality tốt nhất
+- Coverage: 8.20%, cân bằng giữa accuracy và diversity
 
 **ItemCF - Coverage Champion**
-- Coverage 96.72% - gần như recommend tất cả items
+- Coverage 97.02% - gần như recommend tất cả items
 - Phù hợp cho discovery & diversity
-- Accuracy trung bình, nhưng tốt cho cold start items
+- Recall tốt (4.36%), vượt cả Popularity và SVD
+- Tốt cho cold start items
 
-**SVD - Middle Ground**
-- Performance ở giữa ALS và ItemCF
+**SVD - Balanced Approach**
+- Performance ở giữa ItemCF và ALS
+- Recall: 6.34%, NDCG: 0.0439
 - Tốt cho dimensionality reduction
-- Training chậm nhất (~221s)
+- Coverage: 4.67%
 
 **Popularity - Baseline**
 - Worst performer về accuracy
 - Coverage cực thấp (0.08%) - chỉ recommend popular items
-- Nhưng: Nhanh nhất, đơn giản, giải quyết cold start
+- Nhưng: Nhanh nhất, đơn giản, dễ implement
 
 #### Output
 
