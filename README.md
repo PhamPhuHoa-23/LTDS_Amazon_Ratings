@@ -590,6 +590,17 @@ $$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|
 
 ---
 
+---
+
+## Tác Giả
+
+**Phạm Phú Hòa**  
+MSSV: 23122030  
+Email: phamhoa23us@gmail.com / 23122030@student.hcmus.edu.vn
+Trường: Đại học Khoa học Tự nhiên - ĐHQG TP.HCM
+
+---
+
 ## Tham Khảo
 
 1. **ALS:**
@@ -627,19 +638,3 @@ In no event will the licensors be liable for any damages arising from the use of
 
 For more information, please refer to: [https://creativecommons.org/publicdomain/zero/1.0/](https://creativecommons.org/publicdomain/zero/1.0/)
 
----
-
-## Tác Giả
-
-**Phạm Phú Hòa**  
-MSSV: 23122030  
-Email: phamhoa23us@gmail.com / 23122030@student.hcmus.edu.vn
-Trường: Đại học Khoa học Tự nhiên - ĐHQG TP.HCM
-
----
-
-## Lời Cảm Ơn
-
-- Giảng viên môn **CSC17104 - Lập Trình Cho Khoa Học Dữ Liệu**
-- Amazon & Prof. Julian McAuley (UCSD) đã cung cấp dataset
-- Cộng đồng NumPy & Python
