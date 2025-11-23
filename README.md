@@ -25,13 +25,6 @@
 
 Dự án này xây dựng một **hệ thống gợi ý sản phẩm** (Recommendation System) hoàn chỉnh cho lĩnh vực mỹ phẩm (Beauty) trên nền tảng Amazon, sử dụng dữ liệu đánh giá (ratings) thực tế.
 
-### Đặc Điểm Chính
-
-- **Pure NumPy Implementation**: Toàn bộ thuật toán được cài đặt từ đầu bằng NumPy, không sử dụng thư viện ML/DS như pandas, scikit-learn
-- **4 Thuật Toán**: So sánh hiệu năng của Popularity, ItemCF, SVD, và ALS
-- **Quy Trình Hoàn Chỉnh**: Từ phân tích dữ liệu $\rightarrow$ tiền xử lý $\rightarrow$ xây dựng model $\rightarrow$ đánh giá
-- **Tối Ưu Hóa**: Sử dụng vectorization và compressed storage (`.npz`) để xử lý hiệu quả
-
 ---
 
 ## Dataset
@@ -39,7 +32,7 @@ Dự án này xây dựng một **hệ thống gợi ý sản phẩm** (Recommen
 ### Nguồn Dữ Liệu
 
 **Dataset:** Amazon Beauty Ratings  
-**Nguồn:** [Amazon Product Data (Kaggle)](https://www.kaggle.com/)  
+**Nguồn:** [Amazon Product Data (Kaggle)](https://www.kaggle.com/datasets/skillsmuggler/amazon-ratings)  
 **File:** `ratings_Beauty.csv`  
 **Khoảng thời gian:** 1998-10-19 đến 2014-07-23 (15.8 năm)
 
@@ -140,7 +133,7 @@ pip install -r requirements.txt
 
 **Bước 3:** Tải dataset
 
-1. Tải file `ratings_Beauty.csv` từ [Kaggle](https://www.kaggle.com/)
+1. Tải file `ratings_Beauty.csv` từ [Kaggle](https://www.kaggle.com/datasets/skillsmuggler/amazon-ratings)
 2. Đặt file vào thư mục `data/raw/`:
    ```
    data/
@@ -599,8 +592,6 @@ $$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|
 
 ## Tham Khảo
 
-### Papers & Algorithms
-
 1. **ALS:**
    - Hu, Koren, Volinsky (2008). "Collaborative Filtering for Implicit Feedback Datasets"
    - Takács, Tikk (2012). "Applications of the Conjugate Gradient Method for Implicit Feedback Collaborative Filtering"
@@ -612,24 +603,29 @@ $$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|
    - Sarwar et al. (2001). "Item-based collaborative filtering recommendation algorithms"
    - Koren, Bell, Volinsky (2009). "Matrix Factorization Techniques for Recommender Systems"
 
-### Datasets
-
-- Amazon Product Data: [Julian McAuley's website](http://jmcauley.ucsd.edu/data/amazon/)
-- Paper: "Image-based recommendations on styles and substitutes" (SIGIR 2015)
-
-### Tools & Libraries
-
-- NumPy Documentation: https://numpy.org/doc/
-- Matplotlib: https://matplotlib.org/
-- Seaborn: https://seaborn.pydata.org/
-
 ---
 
 ## License
 
-Dự án này được phát triển cho mục đích học tập tại **Trường Đại học Khoa học Tự nhiên - ĐHQG TP.HCM**.
+This project is developed for **learning and research purposes**.
 
-**Dataset License:** Amazon Product Data được sử dụng cho mục đích nghiên cứu và giáo dục.
+### Dataset License
+This project uses **Amazon Product Data** strictly for research and educational purposes.  
+All rights to the dataset belong to their respective owners and **are not** covered by this project's license.
+
+### Project License — CC0 1.0 Universal (Public Domain Dedication)
+
+CC0 1.0 Universal
+
+Statement of Purpose
+
+The person who associated a work with this deed has dedicated the work to the public domain by waiving all of their rights to the work worldwide under copyright law, including all related and neighboring rights, to the extent allowed by law.
+
+You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission.
+
+In no event will the licensors be liable for any damages arising from the use of this software.
+
+For more information, please refer to: [https://creativecommons.org/publicdomain/zero/1.0/](https://creativecommons.org/publicdomain/zero/1.0/)
 
 ---
 
@@ -637,7 +633,7 @@ Dự án này được phát triển cho mục đích học tập tại **Trư�
 
 **Phạm Phú Hòa**  
 MSSV: 23122030  
-Email: [email protected]  
+Email: phamhoa23us@gmail.com / 23122030@student.hcmus.edu.vn
 Trường: Đại học Khoa học Tự nhiên - ĐHQG TP.HCM
 
 ---
