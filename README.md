@@ -549,22 +549,49 @@ $$\text{Coverage} = \frac{|\bigcup \text{Recommended items}|}{|\text{All items}|
 
 | Model | Precision@10 | Recall@10 | F1@10 | NDCG@10 | Coverage | Eval Time |
 |-------|--------------|-----------|-------|---------|----------|-----------|
-| Popularity | 0.0524 | 0.0341 | 0.0411 | 0.0456 | 0.08% | ~3.2s |
-| ItemCF | 0.0891 | 0.0623 | 0.0734 | 0.0782 | 96.72% | ~142.5s |
-| SVD | 0.1247 | 0.0856 | 0.1012 | 0.1089 | 3.77% | ~58.3s |
-| **ALS** | **0.1384** | **0.1142** | **0.1253** | **0.1367** | 7.24% | ~51.2s |
+| Popularity | 0.0039 | 0.0210 | 0.0063 | 0.0124 | 0.08% | ~2.7s |
+| ItemCF | 0.0107 | 0.0388 | 0.0143 | 0.0282 | 96.72% | ~104.6s |
+| SVD | 0.0184 | 0.0514 | 0.0215 | 0.0375 | 3.77% | ~35.4s |
+| **ALS** | **0.0246** | **0.0745** | **0.0305** | **0.0543** | 7.24% | ~33.9s |
 
 **Model tốt nhất theo từng metric:**
 
 | Metric | Model | Score |
 |--------|-------|-------|
-| Precision@10 | **ALS** | 0.1384 |
-| Recall@10 | **ALS** | 0.1142 |
-| F1@10 | **ALS** | 0.1253 |
-| NDCG@10 | **ALS** | 0.1367 |
+| Precision@10 | **ALS** | 0.0246 |
+| Recall@10 | **ALS** | 0.0745 |
+| F1@10 | **ALS** | 0.0305 |
+| NDCG@10 | **ALS** | 0.0543 |
 | Coverage | **ItemCF** | 0.9672 |
 
 **Phân tích:**
+
+**ALS - Overall Winner**
+- Thắng tuyệt đối về accuracy metrics (Precision, Recall, F1, NDCG)
+- Precision gấp 6.3x so với Popularity
+- Recall đạt 7.45% - cao nhất
+- NDCG cao nhất (0.0543) cho thấy ranking quality tốt nhất
+- Trade-off: Coverage thấp hơn ItemCF
+
+**ItemCF - Coverage Champion**
+- Coverage 96.72% - gần như recommend tất cả items
+- Phù hợp cho discovery & diversity
+- Accuracy trung bình, nhưng tốt cho cold start items
+
+**SVD - Middle Ground**
+- Performance ở giữa ALS và ItemCF
+- Tốt cho dimensionality reduction
+- Training chậm nhất (~221s)
+
+**Popularity - Baseline**
+- Worst performer về accuracy
+- Coverage cực thấp (0.08%) - chỉ recommend popular items
+- Nhưng: Nhanh nhất, đơn giản, giải quyết cold start
+
+#### Output
+
+- File: `results/model_recommendations.npz`
+- Chứa: Dictionary `results` với metrics cho từng model
 
 ---
 
