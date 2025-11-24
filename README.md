@@ -102,6 +102,36 @@ Tập dữ liệu bao gồm 4 trường thông tin:
 
 **Nhận xét:** Dữ liệu có xu hướng nghiêng về điểm đánh giá cao, với hơn 61% là 5 sao, cho thấy xu hướng tích cực phổ biến trong thương mại điện tử.
 
+![Phân Phối Ratings](assets/rating_distribution[barpie].png)
+*Hình 1: Phân phối điểm đánh giá - Biểu đồ cột (trái) và biểu đồ tròn (phải)*
+
+**Phân tích hoạt động người dùng:**
+
+- Phần lớn người dùng có ít đánh giá
+- Power users (≥10 đánh giá) rất hiếm nhưng quan trọng cho hệ thống gợi ý
+- Phân phối tuân theo quy luật long-tail
+
+![Phân Phối Hoạt Động User](assets/phanphoihoatdonguser.png)
+*Hình 2: Phân phối số lượng đánh giá mỗi người dùng (thang log)*
+
+**Phân tích độ phổ biến sản phẩm:**
+
+- Nhiều sản phẩm có ít đánh giá (vấn đề khởi động lạnh)
+- Một số sản phẩm rất phổ biến với hàng nghìn đánh giá
+- Phân phối long-tail điển hình trong thương mại điện tử
+
+![Độ Phổ Biến Product](assets/dophobienproduct.png)
+*Hình 3: Phân phối số lượng đánh giá mỗi sản phẩm (thang log)*
+
+**Xu hướng theo thời gian:**
+
+- Hoạt động đánh giá tăng dần theo thời gian
+- Khoảng thời gian: 1998-10-19 đến 2014-07-23 (15.8 năm)
+- Thể hiện sự phát triển của nền tảng Amazon Beauty
+
+![Rating theo Thời Gian](assets/ratingwrttime.png)
+*Hình 4: Xu hướng hoạt động đánh giá theo thời gian*
+
 **Dữ liệu sau tiền xử lý:**
 
 Sau khi lọc (chỉ giữ người dùng và sản phẩm có ít nhất 5 đánh giá):
@@ -468,7 +498,7 @@ Các biểu đồ so sánh được tạo tự động trong notebook 03:
 LTDS_Amazon_Ratings/
 ├── data/
 │   ├── raw/
-│   │   └── ratings_Beauty.csv          # Tập dữ liệu gốc (tải từ Kaggle)
+│   │   └── ratings_Beauty.csv           # Tập dữ liệu gốc (tải từ Kaggle)
 │   └── processed/                       # Dữ liệu đã xử lý (tự động tạo)
 │       ├── exploration_outputs.npz      # Kết quả phân tích khám phá
 │       ├── preprocessed_data.npz        # Tập huấn luyện/kiểm tra
@@ -477,13 +507,13 @@ LTDS_Amazon_Ratings/
 │       └── product_stats.npy            # Thống kê sản phẩm
 │
 ├── notebooks/
-│   ├── 01_data_exploration.ipynb       # Phân tích dữ liệu
-│   ├── 02_preprocessing.ipynb          # Tiền xử lý
-│   └── 03_modeling.ipynb               # Xây dựng và đánh giá mô hình
+│   ├── 01_data_exploration.ipynb        # Phân tích dữ liệu
+│   ├── 02_preprocessing.ipynb           # Tiền xử lý
+│   └── 03_modeling.ipynb                # Xây dựng và đánh giá mô hình
 │
 ├── src/                                 # Mô-đun Python có thể tái sử dụng
 │   ├── __init__.py
-│   ├── data_processing.py              # Tải, lọc, tạo đặc trưng
+│   ├── data_processing.py               # Tải, lọc, tạo đặc trưng
 │   ├── models.py                        # Các thuật toán gợi ý
 │   ├── evaluation.py                    # Độ đo đánh giá
 │   └── visualization.py                 # Vẽ biểu đồ
@@ -538,15 +568,15 @@ LTDS_Amazon_Ratings/
 **Thách thức:**
 - Phương pháp lọc cộng tác dựa trên người dùng (UserCF) đã được cài đặt
 - Thời gian suy luận cực kỳ chậm do:
-  - Phải tính độ tương tự giữa 22,480 người dùng (hơn 250 triệu cặp)
-  - Ma trận độ tương tự người dùng-người dùng quá lớn (22,480 × 22,480)
+  - Phải tính độ tương tự giữa 22,480 người dùng
+  - Ma trận độ tương tự người dùng-người dùng quá lớn
   - Mỗi lần gợi ý phải tìm láng giềng gần nhất trong không gian lớn
 
 **Giải pháp:**
 - **Không sử dụng UserCF:** Quyết định loại bỏ UserCF khỏi đánh giá cuối cùng
-- **Tập trung vào ItemCF:** Item-based có thể tính trước và lưu lại (12,153 × 12,153 sản phẩm)
+- **Tập trung vào ItemCF:** Item-based có thể tính trước và lưu lại
 - **Sử dụng ALS:** Phương pháp phân rã ma trận hiệu quả hơn cho số lượng người dùng lớn
-- **Tối ưu hóa:** Nếu cần UserCF, có thể dùng kỹ thuật LSH (Locality Sensitive Hashing) hoặc approximate nearest neighbors
+
 
 ### 3. Kết Quả Recall@10 Chỉ Đạt Khoảng 9%
 
@@ -565,57 +595,17 @@ LTDS_Amazon_Ratings/
 - Tập trung vào việc cài đặt đúng thuật toán bằng NumPy thuần
 - So sánh tương đối giữa các mô hình (ALS vẫn tốt hơn các mô hình khác đáng kể)
 
-**Hướng cải thiện:**
-- Xem phần "Hướng Phát Triển" bên dưới
 
 ---
 
 ## Hướng Phát Triển
 
-### 1. Cải Thiện Độ Chính Xác
-
-- **Kết hợp nội dung (Hybrid Recommender):**
   - Thêm thông tin văn bản (tiêu đề, mô tả sản phẩm)
-  - Sử dụng hình ảnh sản phẩm (deep learning)
-  - Kết hợp collaborative filtering + content-based filtering
-
-- **Kỹ thuật ensemble:**
   - Kết hợp dự đoán từ nhiều mô hình (ALS + ItemCF + SVD)
-  - Weighted average hoặc stacking
-
-### 2. Tối Ưu Hóa Hiệu Năng
-
-- **Điều chỉnh siêu tham số:**
   - Grid search hoặc random search cho ALS (số nhân tố, lambda, số vòng lặp)
   - Tối ưu k cho ItemCF
   - Thử các phương pháp khác nhau cho SVD
-
-- **Thuật toán nâng cao:**
   - Neural Collaborative Filtering (NCF)
-  - Deep learning models (AutoEncoder, VAE)
-  - Graph-based methods (GraphSAGE, LightGCN)
-
-### 3. Mở Rộng Hệ Thống
-
-- **Triển khai thực tế:**
-  - Xây dựng API REST với FastAPI
-  - Triển khai trên cloud (AWS, GCP, Azure)
-  - Xây dựng giao diện web đơn giản
-
-- **Cập nhật thời gian thực:**
-  - Online learning để cập nhật mô hình với dữ liệu mới
-  - Incremental training cho ALS
-
-### 4. Đánh Giá Toàn Diện Hơn
-
-- **Thêm độ đo:**
-  - Đa dạng (Diversity): Đo mức độ khác biệt giữa các gợi ý
-  - Mới lạ (Novelty): Đo mức độ ngạc nhiên của người dùng
-  - Serendipity: Gợi ý bất ngờ nhưng hữu ích
-
-- **Kiểm tra A/B:**
-  - Thử nghiệm với người dùng thật
-  - So sánh hiệu quả kinh doanh (click-through rate, conversion rate)
 
 ---
 
@@ -644,16 +634,6 @@ Trường Đại học Khoa học Tự nhiên - Đại học Quốc gia Thành p
    - Sarwar, B., Karypis, G., Konstan, J., & Riedl, J. (2001). "Item-based collaborative filtering recommendation algorithms". WWW.
    - Koren, Y., Bell, R., & Volinsky, C. (2009). "Matrix Factorization Techniques for Recommender Systems". IEEE Computer.
 
-### Tập Dữ Liệu
-
-- Amazon Product Data: [Trang web của Julian McAuley](http://jmcauley.ucsd.edu/data/amazon/)
-- Bài báo: "Image-based recommendations on styles and substitutes" (SIGIR 2015)
-
-### Công Cụ và Thư Viện
-
-- Tài liệu NumPy: https://numpy.org/doc/
-- Matplotlib: https://matplotlib.org/
-- Seaborn: https://seaborn.pydata.org/
 
 ---
 
@@ -661,21 +641,31 @@ Trường Đại học Khoa học Tự nhiên - Đại học Quốc gia Thành p
 
 Dự án này được phát triển cho **mục đích học tập và nghiên cứu**.
 
-### Giấy Phép Tập Dữ Liệu
+### Dataset License
 
-Dự án này sử dụng **Amazon Product Data** hoàn toàn cho mục đích nghiên cứu và giáo dục.  
-Tất cả quyền đối với tập dữ liệu thuộc về chủ sở hữu tương ứng và **không** được bao phủ bởi giấy phép của dự án này.
+This project uses **Amazon Product Data** solely for research and educational purposes.  
+All rights to the dataset belong to the respective owners and are **not** covered by the project's license.
 
-### Giấy Phép Dự Án - CC0 1.0 Universal (Cống Hiến Phạm Vi Công Cộng)
+**Citation:**
+```
+Julian McAuley (2015). "Image-based recommendations on styles and substitutes." 
+ACM SIGIR Conference on Research and Development in Information Retrieval.
+```
+
+**Dataset Source:** [Amazon Product Data](https://www.kaggle.com/datasets/skillsmuggler/amazon-ratings)
+
+### Project License - CC0 1.0 Universal (Public Domain Dedication)
 
 **CC0 1.0 Universal**
 
-**Tuyên Bố Mục Đích**
+**Statement of Purpose**
 
-Người liên kết tác phẩm này với văn bản pháp lý đã cống hiến tác phẩm cho phạm vi công cộng bằng cách từ bỏ tất cả quyền của họ đối với tác phẩm trên toàn thế giới theo luật bản quyền, bao gồm tất cả các quyền liên quan và lân cận, trong phạm vi được pháp luật cho phép.
+The person who associated a work with this deed has dedicated the work to the public domain by waiving all of his or her rights to the work worldwide under copyright law, including all related and neighboring rights, to the extent allowed by law.
 
-Bạn có thể sao chép, chỉnh sửa, phân phối và thực hiện tác phẩm, ngay cả cho mục đích thương mại, tất cả mà không cần xin phép.
+You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission.
 
-Trong mọi trường hợp, người cấp giấy phép sẽ không chịu trách nhiệm về bất kỳ thiệt hại nào phát sinh từ việc sử dụng phần mềm này.
+**No Warranty**
 
-Để biết thêm thông tin, vui lòng tham khảo: [https://creativecommons.org/publicdomain/zero/1.0/](https://creativecommons.org/publicdomain/zero/1.0/)
+In no event shall the copyright holder be liable for any claim, damages or other liability arising from the use of this software.
+
+For more information, please refer to: [https://creativecommons.org/publicdomain/zero/1.0/](https://creativecommons.org/publicdomain/zero/1.0/)
