@@ -132,6 +132,36 @@ Tập dữ liệu bao gồm 4 trường thông tin:
 ![Rating theo Thời Gian](assets/ratingwrttime.png)
 *Hình 4: Xu hướng hoạt động đánh giá theo thời gian*
 
+### Phân Tích Mở Rộng
+
+#### Xu hướng rating theo thời gian
+
+Rating trung bình giảm nhẹ qua các giai đoạn phát triển (Early 4.20 → Growth 4.17 → Mature 4.15) nhưng không đáng kể. Giai đoạn Mature (2011-2014) chiếm 91.5% tổng số ratings, phản ánh sự bùng nổ của nền tảng.
+
+![Xu Hướng Rating](assets/xuhuongrating.png)
+*Hình 5: So sánh mean rating và số lượng ratings qua 3 giai đoạn phát triển*
+
+#### Phân tích theo nhóm người dùng
+
+Newbies (1-4 reviews) chiếm 95.7% users nhưng chỉ đóng góp 76.8% ratings. Nhóm Casual (5-9) có mean rating cao nhất (4.20). Power users có rating trung bình tương đương Newbies, không khắt khe hơn như dự đoán. Tuy nhiên, variance giảm dần khi số reviews tăng (từ 1.34 xuống 1.16), cho thấy experienced users đánh giá ổn định hơn.
+
+![Rating theo Nhóm](assets/ratingtheonhom.png)
+*Hình 6: Mean rating và phân bố số lượng users theo 5 nhóm (Newbies, Casual, Active, Power, Super)*
+
+#### Phân tích theo tháng và mùa
+
+Tháng 1 có nhiều reviews nhất (212,363 - 10.5%), tiếp theo là tháng 3 (10.18%). Tháng 8, 9, 10 có số lượng thấp nhất (5-6%), có thể do mùa hè và đầu thu hoạt động mua sắm giảm. Rating theo mùa khá đồng đều (4.13-4.16), không có sự khác biệt đáng kể. Số reviews tăng trưởng mạnh qua các năm, đặc biệt 2013 đạt đỉnh với 798,903 reviews.
+
+![Rating theo Tháng và Mùa](assets/ratingtheothangvamua.png)
+*Hình 7: Phân bố reviews theo tháng và mean rating theo 4 mùa*
+
+#### Long-tail distribution
+
+Chỉ 20.11% products chiếm 80% tổng reviews, xác nhận phân phối long-tail điển hình. Top 1% products (2,492 sản phẩm) đã chiếm 29.2% tổng reviews. Điều này tạo thách thức lớn cho recommendation system trong việc cân bằng giữa gợi ý popular items và khám phá long-tail products ít được biết đến.
+
+![Long-tail Distribution](assets/longtail.png)
+*Hình 8: Pareto chart (trái) và tỷ lệ reviews theo tier (phải) - minh họa phân phối long-tail*
+
 **Dữ liệu sau tiền xử lý:**
 
 Sau khi lọc (chỉ giữ người dùng và sản phẩm có ít nhất 5 đánh giá):
@@ -207,10 +237,6 @@ for user, product, rating in zip(train_users, train_products, train_ratings):
     train_matrix[user, product] = rating
 ```
 
-Kết quả:
-- Kích thước: $(22{,}480 \times 12{,}153)$
-- Phần tử khác không: 159,342
-- Độ thưa: $99.94\%$
 
 ### Thuật Toán Sử Dụng
 
