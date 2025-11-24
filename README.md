@@ -486,9 +486,14 @@ python src/visualization.py
 
 ### Trực Quan Hóa
 
-Các biểu đồ so sánh được tạo tự động trong notebook 03:
-- Biểu đồ cột so sánh 5 độ đo (Precision, Recall, F1, NDCG, Coverage)
-- Ma trận so sánh hiệu năng các mô hình
+![So Sánh Kết Quả Models](assets/bar_results.png)
+*Hình 5: So sánh hiệu năng 4 mô hình gợi ý theo 5 độ đo: Precision@10, Recall@10, F1@10, NDCG@10, và Coverage*
+
+**Nhận xét từ biểu đồ:**
+- **ALS** dẫn đầu rõ ràng về Precision, Recall, F1, và NDCG
+- **ItemCF** có Coverage vượt trội (gần 100%), phù hợp cho khám phá sản phẩm
+- **Popularity** có hiệu năng thấp nhất nhưng đơn giản và nhanh
+- **SVD** cân bằng giữa độ chính xác và tốc độ
 
 ---
 
@@ -656,16 +661,20 @@ ACM SIGIR Conference on Research and Development in Information Retrieval.
 
 ### Project License - CC0 1.0 Universal (Public Domain Dedication)
 
+[![CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
+
 **CC0 1.0 Universal**
 
-**Statement of Purpose**
+**No Copyright**
 
 The person who associated a work with this deed has dedicated the work to the public domain by waiving all of his or her rights to the work worldwide under copyright law, including all related and neighboring rights, to the extent allowed by law.
 
-You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission.
+You can copy, modify, distribute and perform the work, even for commercial purposes, all without asking permission. See **Other Information** below.
 
-**No Warranty**
+**Other Information**
 
-In no event shall the copyright holder be liable for any claim, damages or other liability arising from the use of this software.
+- In no way are the patent or trademark rights of any person affected by CC0, nor are the rights that other persons may have in the work or in how the work is used, such as publicity or privacy rights.
+- Unless expressly stated otherwise, the person who associated a work with this deed makes no warranties about the work, and disclaims liability for all uses of the work, to the fullest extent permitted by applicable law.
+- When using or citing the work, you should not imply endorsement by the author or the affirmer.
 
 For more information, please refer to: [https://creativecommons.org/publicdomain/zero/1.0/](https://creativecommons.org/publicdomain/zero/1.0/)
