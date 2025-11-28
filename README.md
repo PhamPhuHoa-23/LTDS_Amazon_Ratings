@@ -668,11 +668,7 @@ Trường Đại học Khoa học Tự nhiên - Đại học Quốc gia Thành p
 
 ---
 
-## Giấy Phép
-
-Dự án này được phát triển cho **mục đích học tập và nghiên cứu**.
-
-### Dataset License
+## License
 
 This project uses **Amazon Product Data** solely for research and educational purposes.  
 All rights to the dataset belong to the respective owners and are **not** covered by the project's license.
