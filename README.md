@@ -486,26 +486,26 @@ python src/visualization.py
 
 ### Phân Tích Kết Quả
 
-**ALS - Người Chiến Thắng Tổng Thể**
+**ALS**
 - Thắng tuyệt đối về các độ đo độ chính xác (Precision, Recall, F1, NDCG)
 - Precision gấp 5.4 lần so với Popularity
 - Recall đạt 8.92% - cao nhất
 - NDCG cao nhất (0.0611) cho thấy chất lượng xếp hạng tốt nhất
 - Coverage: 8.20%, cân bằng giữa độ chính xác và tính đa dạng
 
-**ItemCF - Nhà Vô Địch Độ Bao Phủ**
+**ItemCF**
 - Coverage 97.02% - gần như gợi ý tất cả sản phẩm
 - Phù hợp cho khám phá và tính đa dạng
 - Recall tốt (4.36%), vượt cả Popularity và SVD
 - Tốt cho các sản phẩm mới
 
-**SVD - Phương Pháp Cân Bằng**
+**SVD**
 - Hiệu năng ở giữa ItemCF và ALS
 - Recall: 6.34%, NDCG: 0.0439
 - Tốt cho giảm chiều dữ liệu
 - Coverage: 4.67%
 
-**Popularity - Mô Hình Cơ Sở**
+**Popularity**
 - Hiệu năng kém nhất về độ chính xác
 - Coverage cực thấp (0.08%) - chỉ gợi ý sản phẩm phổ biến
 - Nhưng: Nhanh nhất, đơn giản, dễ cài đặt
